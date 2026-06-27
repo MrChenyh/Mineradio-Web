@@ -1,0 +1,10 @@
+node_modules/
+web/dist/
+bridge/.mineradio-bridge-token
+bridge/.cookie
+bridge/.qq-cookie
+bridge/updates/
+bridge/cache/
+release/
+*.log
+*.tmp

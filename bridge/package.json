@@ -1,0 +1,6 @@
+{
+  "name": "mineradio-bridge",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local bridge for Mineradio Web online music sources."
+}

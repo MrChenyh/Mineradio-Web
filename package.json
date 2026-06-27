@@ -1,0 +1,18 @@
+{
+  "name": "mineradio-web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Mineradio Web player with a local bridge for online music sources.",
+  "scripts": {
+    "bridge": "node bridge/server.js",
+    "build:web": "node scripts/build-web.js",
+    "preview:web": "node scripts/preview-web.js",
+    "package:bridge:win": "node scripts/package-bridge-win.js",
+    "check": "node --check bridge/server.js && node --check bridge/start-bridge.js && node --check web/public/mineradio-web-adapter.js && node --check scripts/build-web.js && node --check scripts/preview-web.js && node --check scripts/package-bridge-win.js"
+  },
+  "dependencies": {
+    "NeteaseCloudMusicApi": "^4.32.0",
+    "mpg123-decoder": "^1.0.3"
+  },
+  "devDependencies": {}
+}
