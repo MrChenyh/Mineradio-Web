@@ -22,7 +22,7 @@ try {
 html,body{font-family:var(--font-sans);background:#000;color:#fff;overflow:hidden;height:100vh;width:100vw;user-select:none;-webkit-font-smoothing:antialiased}
 body.cursor-hidden,body.cursor-hidden *{cursor:none!important}
 html.desktop-shell-root,html.desktop-shell-root body{background:transparent}
-:root{--font-sans:"Noto Sans SC","PingFang SC","HarmonyOS Sans SC","Alibaba PuHuiTi","Inter",-apple-system,BlinkMacSystemFont,system-ui,sans-serif;--font-mono:"JetBrains Mono","Geist Mono","SF Mono",ui-monospace,monospace;--fc-bg:#08090B;--fc-paper:#0E1014;--fc-ink:#E8ECEF;--fc-ink-2:#D2D7DC;--fc-muted:#8A9099;--fc-hair:#1A1D22;--fc-hair-2:#262A31;--fc-accent:#00F5D4;--fc-accent-hov:#00E0BE;--fc-accent-rgb:0,245,212;--fc-blue:#2442ff;--fc-warm:#f8f4ee;--chill-ink:#030608;--chill-deep:#061116;--chill-cyan:#8fe9ff;--chill-blue:#73a7ff;--chill-mint:#9cffdf;--chill-soft:rgba(214,248,255,.9);--champagne:#f4d28a;--champagne-deep:#9a6f2c;--home-accent:#00f5d4;--home-accent-rgb:0,245,212;--visual-tint:#9db8cf;--source-netease:#d95b67;--source-qq:#00F5D4;--source-local:#9db8cf}
+:root{--font-sans:"Noto Sans SC","PingFang SC","HarmonyOS Sans SC","Alibaba PuHuiTi","Inter",-apple-system,BlinkMacSystemFont,system-ui,sans-serif;--font-mono:"JetBrains Mono","Geist Mono","SF Mono",ui-monospace,monospace;--fc-bg:#08090B;--fc-paper:#0E1014;--fc-ink:#E8ECEF;--fc-ink-2:#D2D7DC;--fc-muted:#8A9099;--fc-hair:#1A1D22;--fc-hair-2:#262A31;--fc-accent:#00F5D4;--fc-accent-hov:#00E0BE;--fc-accent-rgb:0,245,212;--fc-blue:#2442ff;--fc-warm:#f8f4ee;--chill-ink:#030608;--chill-deep:#061116;--chill-cyan:#8fe9ff;--chill-blue:#73a7ff;--chill-mint:#9cffdf;--chill-soft:rgba(214,248,255,.9);--champagne:#f4d28a;--champagne-deep:#9a6f2c;--home-accent:#00f5d4;--home-accent-rgb:0,245,212;--visual-tint:#9db8cf;--source-netease:#d95b67;--source-qq:#00F5D4;--source-local:#9db8cf;--source-public:#f4d28a}
 :root{--glass-bg:linear-gradient(112deg,rgba(72,74,76,.62),rgba(24,27,30,.70) 48%,rgba(8,12,14,.74));--glass-bg-focus:linear-gradient(112deg,rgba(88,91,92,.68),rgba(28,32,35,.76) 50%,rgba(8,13,15,.82));--glass-border:rgba(0,245,212,.30);--glass-border-soft:rgba(255,255,255,.095);--glass-shadow:0 22px 64px rgba(0,0,0,.30),0 0 34px rgba(0,245,212,.052),inset 0 1px 0 rgba(255,255,255,.16),inset 0 -24px 58px rgba(0,0,0,.16);--glass-shadow-focus:0 24px 72px rgba(0,0,0,.34),0 0 0 1px rgba(0,245,212,.13),0 0 42px rgba(0,245,212,.075),inset 0 1px 0 rgba(255,255,255,.20)}
 :root{--saved-panel-glass-bg:rgba(0,0,0,.10);--saved-panel-glass-filter:blur(12px) saturate(1.8) brightness(1.16);--saved-panel-glass-svg-filter:url(#mineradio-control-glass-filter) saturate(1);--saved-panel-glass-shadow:inset 0 0 2px 1px rgba(255,255,255,.35),inset 0 0 10px 4px rgba(255,255,255,.15),0 4px 16px rgba(17,17,26,.05),0 8px 24px rgba(17,17,26,.05),0 16px 56px rgba(17,17,26,.05),inset 0 4px 16px rgba(17,17,26,.05),inset 0 8px 24px rgba(17,17,26,.05),inset 0 16px 56px rgba(17,17,26,.05);--saved-panel-glass-radius:50px;--saved-button-glass-bg:rgba(0,0,0,.10);--saved-button-glass-filter:blur(12px) saturate(1.8) brightness(1.16);--saved-button-glass-svg-filter:url(#mineradio-control-glass-filter) saturate(1);--saved-button-glass-shadow:inset 0 0 2px 1px rgba(255,255,255,.34),inset 0 0 10px 4px rgba(255,255,255,.13),0 10px 30px rgba(0,0,0,.18);--saved-button-glass-hover-bg:rgba(255,255,255,.055);--saved-button-glass-hover-shadow:inset 0 0 2px 1px rgba(255,255,255,.42),inset 0 0 12px 5px rgba(255,255,255,.17),0 12px 34px rgba(0,0,0,.22),0 0 18px rgba(255,255,255,.06)}
 :root{--home-icon-color:#f4d28a;--home-icon-rgb:244,210,138;--visual-icon-color:#7fd8ff;--visual-icon-rgb:127,216,255}
@@ -208,6 +208,24 @@ body.empty-home-active.diy-mode #search-area:not(.has-results) #search-mode-tabs
 .tag-source{display:inline-flex;align-items:center;height:16px;padding:0 6px;border-radius:999px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.045);font-size:8.5px;font-weight:800;letter-spacing:.55px;line-height:1;flex-shrink:0}
 .tag-source.netease{color:#ffd8dd;border-color:rgba(217,91,103,.30);background:rgba(217,91,103,.075)}
 .tag-source.qq{color:#f0ffc8;border-color:rgba(191,214,107,.30);background:rgba(191,214,107,.075)}
+.tag-source.public{color:#fff1bd;border-color:rgba(244,210,138,.32);background:rgba(244,210,138,.095)}
+.tag-source.local{color:#d5f5ff;border-color:rgba(157,184,207,.32);background:rgba(157,184,207,.095)}
+#splash-bridge,
+#bridge-status-banner,
+#bridge-mini-control,
+#user-btn,
+#user-capsule-hide-btn,
+#login-modal,
+#user-modal,
+#heart-btn,
+#collect-btn,
+#quality-control,
+#search-mode-netease,
+#search-mode-qq,
+#search-mode-podcast,
+#tab-pl,
+#tab-podcast{display:none!important}
+.search-result .song-action-btn{display:none!important}
 .search-result.qq-source:hover{background:rgba(191,214,107,.052)}
 .search-result.netease-source:hover{background:rgba(217,91,103,.045)}
 .podcast-result-head{display:flex;align-items:center;gap:10px;padding:11px 13px 9px;border-bottom:1px solid rgba(255,255,255,.04);background:rgba(255,255,255,.025)}
@@ -1914,15 +1932,15 @@ html.control-glass-svg-ok #visual-guide-btn:hover{
       <div class="splash-bridge-row">
         <span class="splash-bridge-dot" aria-hidden="true"></span>
         <div>
-          <div id="splash-bridge-title" class="splash-bridge-title">正在检测 Bridge</div>
-          <div id="splash-bridge-text" class="splash-bridge-text">在线音源需要本机 Bridge。检测通过后即可进入播放器。</div>
+          <div id="splash-bridge-title" class="splash-bridge-title">本地模式</div>
+          <div id="splash-bridge-text" class="splash-bridge-text">本地文件播放已可用，公共源搜索仅作为实验入口。</div>
         </div>
       </div>
       <div class="splash-bridge-actions">
-        <a id="splash-bridge-pair" class="primary" href="http://127.0.0.1:37891/pair" target="_blank" rel="noreferrer">配对 Bridge</a>
-        <button id="splash-bridge-retry" type="button">重试检测</button>
-        <a href="bridge.html" target="_blank" rel="noreferrer">安装说明</a>
-        <button id="splash-offline-enter" type="button">离线体验</button>
+        <a id="splash-bridge-pair" class="primary" href="#" target="_blank" rel="noreferrer">本地模式</a>
+        <button id="splash-bridge-retry" type="button">刷新</button>
+        <a href="#" target="_blank" rel="noreferrer">公共源</a>
+        <button id="splash-offline-enter" type="button">进入</button>
       </div>
     </div>
     <div class="splash-enter" aria-hidden="true">点击进入</div>
@@ -1936,10 +1954,10 @@ html.control-glass-svg-ok #visual-guide-btn:hover{
   <div id="search-stack">
     <div id="search-box">
       <svg id="search-icon" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-      <input id="search-input" type="text" placeholder="搜索歌曲、歌手..." autocomplete="off" spellcheck="false">
+      <input id="search-input" type="text" placeholder="搜索公共源，或导入本地歌曲..." autocomplete="off" spellcheck="false">
     </div>
     <div id="search-mode-tabs" class="search-mode-tabs" role="tablist" aria-label="Search mode">
-      <button id="search-mode-song" class="active" type="button" onclick="setSearchMode('song')" aria-selected="true">All</button>
+      <button id="search-mode-song" class="active" type="button" onclick="setSearchMode('song')" aria-selected="true">公共源</button>
       <button id="search-mode-netease" type="button" onclick="setSearchMode('netease')" aria-selected="false">NE</button>
       <button id="search-mode-qq" type="button" onclick="setSearchMode('qq')" aria-selected="false">QQ</button>
       <button id="search-mode-podcast" type="button" onclick="setSearchMode('podcast')" aria-selected="false">Podcast</button>
@@ -1964,28 +1982,28 @@ html.control-glass-svg-ok #visual-guide-btn:hover{
   <div class="empty-home-shell">
     <div class="home-hero">
       <div class="home-hero-inner home-construction-inner">
-        <div class="home-title home-construction-title">🚧此处施工，敬请期待🚧</div>
-        <button class="home-chip home-console-chip" type="button" onclick="openHomePlayerConsole()">展开播放器控制台</button>
+        <div class="home-title home-construction-title">本地音乐台</div>
+        <button class="home-chip home-console-chip" type="button" onclick="openHomeLocalImport()">导入本地歌曲</button>
       </div>
     </div>
 
     <div class="home-grid">
-      <button class="home-card" data-home-tone="library" type="button" onclick="openHomeLibrary()">
-        <div class="home-card-label">Library</div>
-        <div class="home-card-title" id="home-weather-card-title">我的歌单</div>
-        <div class="home-card-sub" id="home-weather-card-sub">打开左侧歌单库</div>
+      <button class="home-card" data-home-tone="library" type="button" onclick="openHomeLocalImport()">
+        <div class="home-card-label">Local</div>
+        <div class="home-card-title" id="home-weather-card-title">本地导入</div>
+        <div class="home-card-sub" id="home-weather-card-sub">选择电脑里的音乐文件</div>
         <div class="home-card-art" id="home-weather-art"></div>
       </button>
-      <button class="home-card" data-home-tone="mix" type="button" onclick="playHomeSong(0)">
-        <div class="home-card-label">Daily</div>
-        <div class="home-card-title" id="home-daily-title">每日推荐</div>
-        <div class="home-card-sub" id="home-daily-sub">登录后同步你的今日歌曲</div>
+      <button class="home-card" data-home-tone="mix" type="button" onclick="runHomeSearch('')">
+        <div class="home-card-label">Public</div>
+        <div class="home-card-title" id="home-daily-title">公共源搜索</div>
+        <div class="home-card-sub" id="home-daily-sub">实验接口，成功率视站点限制</div>
         <div class="home-card-art" id="home-daily-art"></div>
       </button>
-      <button class="home-card" data-home-tone="playlist" type="button" onclick="playHomeSong(1)">
-        <div class="home-card-label">Song</div>
-        <div class="home-card-title" id="home-private-title">私人电台</div>
-        <div class="home-card-sub" id="home-private-sub">从你的推荐和歌单里开播</div>
+      <button class="home-card" data-home-tone="playlist" type="button" onclick="runHomeSearch('周杰伦')">
+        <div class="home-card-label">Search</div>
+        <div class="home-card-title" id="home-private-title">试搜一首</div>
+        <div class="home-card-sub" id="home-private-sub">填入关键词后即可尝试</div>
         <div class="home-card-art" id="home-private-art"></div>
       </button>
       <button class="home-card" data-home-tone="mix" type="button" onclick="playHomeRecent()">
@@ -2000,18 +2018,18 @@ html.control-glass-svg-ok #visual-guide-btn:hover{
         <div class="home-card-sub" id="home-profile-sub">播放几首后生成偏好</div>
         <div class="home-card-art" id="home-profile-art"></div>
       </button>
-      <button class="home-card" data-home-tone="local" type="button" onclick="playHomeSong(2)">
-        <div class="home-card-label">Song</div>
-        <div class="home-card-title" id="home-library-title">常听歌手</div>
-        <div class="home-card-sub" id="home-library-sub">你的偏好会在这里汇总</div>
+      <button class="home-card" data-home-tone="local" type="button" onclick="openHomePlayerConsole()">
+        <div class="home-card-label">Player</div>
+        <div class="home-card-title" id="home-library-title">播放器控制台</div>
+        <div class="home-card-sub" id="home-library-sub">展开底部播放控制</div>
         <div class="home-card-art" id="home-library-art"></div>
       </button>
     </div>
 
     <div class="home-rail">
       <div class="home-section-head">
-        <div class="home-section-title" id="home-rail-title">为你准备</div>
-        <div class="home-section-note" id="home-rail-note">正在整理推荐</div>
+        <div class="home-section-title" id="home-rail-title">先从这里开始</div>
+        <div class="home-section-note" id="home-rail-note">本地播放为主，公共源仅用于测试</div>
       </div>
       <div id="home-tile-row" class="home-tile-row"></div>
     </div>
@@ -2024,8 +2042,8 @@ html.control-glass-svg-ok #visual-guide-btn:hover{
   <button id="home-btn" class="icon-btn" onclick="goHome()" title="回到 Home" aria-label="回到 Home">
     <svg width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24"><path d="M3 10.8 12 3l9 7.8"/><path d="M5 10v10h14V10"/><path d="M9.5 20v-5h5v5"/></svg>
   </button>
-  <button id="user-btn" class="icon-btn logged-out" onclick="onUserBtnClick()" title="登录账号">
-    <span class="login-word">登录</span>
+  <button id="user-btn" class="icon-btn logged-out" onclick="onUserBtnClick()" title="本地模式">
+    <span class="login-word">本地</span>
   </button>
 </div>
 
@@ -2304,8 +2322,8 @@ html.control-glass-svg-ok #visual-guide-btn:hover{
   </div>
   <div class="panel-tabs">
     <button id="tab-queue" class="panel-tab active" onclick="switchPlaylistTab('queue')">当前队列</button>
-    <button id="tab-pl" class="panel-tab" onclick="switchPlaylistTab('playlists')">我的歌单</button>
-    <button id="tab-podcast" class="panel-tab" onclick="switchPlaylistTab('podcasts')">我的播客</button>
+      <button id="tab-pl" class="panel-tab" onclick="switchPlaylistTab('playlists')">本地列表</button>
+      <button id="tab-podcast" class="panel-tab" onclick="switchPlaylistTab('podcasts')">播客</button>
   </div>
   <div id="queue-pane">
     <div class="queue-toolbar">
@@ -2319,14 +2337,14 @@ html.control-glass-svg-ok #visual-guide-btn:hover{
   </div>
   <div id="pl-pane" style="display:none">
     <div class="queue-toolbar">
-      <div class="queue-chip">登录后显示网易云 / QQ 歌单</div>
+      <div class="queue-chip">当前版本以本地队列为主</div>
       <button class="fx-mini-btn ghost" onclick="refreshUserPlaylists(true)" style="height:26px;padding:0 10px;font-size:11px">刷新</button>
     </div>
     <div id="pl-list" style="margin-top:6px"></div>
   </div>
   <div id="podcast-pane" style="display:none">
     <div class="queue-toolbar">
-      <div class="queue-chip">收藏 / 创建 / 喜欢</div>
+      <div class="queue-chip">播客入口已隐藏</div>
       <button class="fx-mini-btn ghost" onclick="refreshUserPlaylists(true)" style="height:26px;padding:0 10px;font-size:11px">刷新</button>
     </div>
     <div id="podcast-list"></div>
@@ -2337,7 +2355,7 @@ html.control-glass-svg-ok #visual-guide-btn:hover{
 <div id="trial-banner">
   <svg class="ic" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
   <span id="trial-text">仅播放试听片段</span>
-  <span id="trial-login-btn" class="login-link" onclick="showLoginModal()">扫码登录</span>
+  <span id="trial-login-btn" class="login-link" onclick="showLoginModal()">了解限制</span>
   <span class="close" onclick="document.getElementById('trial-banner').classList.remove('show')">×</span>
 </div>
 
@@ -2504,10 +2522,10 @@ html.control-glass-svg-ok #visual-guide-btn:hover{
     <div class="login-intro">
       <div class="login-intro-kicker">Mineradio</div>
       <div class="login-intro-title">音乐播放器，也是一座视觉舞台</div>
-      <div class="login-intro-body">搜索或导入一首歌即可播放；登录后会同步歌单、红心和播客，让封面、歌词和粒子跟着音乐动起来。</div>
+      <div class="login-intro-body">导入本地音乐即可播放；公共源搜索作为实验入口，失败时不影响本地播放。</div>
     </div>
-    <h2 id="login-modal-title">登录音乐账号</h2>
-    <div id="login-modal-desc" class="desc">登录后可同步歌单、红心和推荐内容。</div>
+    <h2 id="login-modal-title">本地播放模式</h2>
+    <div id="login-modal-desc" class="desc">当前版本隐藏账号登录，保留本地导入和实验公共源搜索。</div>
     <div id="qr-shell" class="qr-shell">
       <img id="qr-img" src="" alt="">
       <button id="qq-web-login-card" class="qq-login-mark" type="button" onclick="openProviderWebLogin()"><b>QQ</b><span>打开官方扫码窗口</span></button>
@@ -2708,6 +2726,10 @@ html.control-glass-svg-ok #visual-guide-btn:hover{
 // ============================================================
 var audio = null, audioCtx = null, source = null, analyser = null, beatAnalyser = null, gainNode = null, audioReady = false;
 var uiSfxCtx = null, lastShelfSelectSfxAt = 0;
+var LOCAL_FIRST_MODE = true;
+var PUBLIC_SOURCE_EXPERIMENTAL = true;
+var PUBLIC_SOURCE_BASES = ['https://bb.qqmp3.vip', 'https://www.qqmp3.vip'];
+var audioDirectMode = false;
 var FFT_SIZE = 2048;
 var frequencyData = new Uint8Array(FFT_SIZE / 2);
 var timeDomainData = new Uint8Array(FFT_SIZE);
@@ -15138,7 +15160,17 @@ async function apiJson(url, opts) {
 }
 function escHtml(s){ var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 function bridgeProxyUrl(path) {
-  if (window.MineradioBridge && typeof window.MineradioBridge.proxyUrl === 'function') return window.MineradioBridge.proxyUrl(path);
+  if (window.MineradioBridge && typeof window.MineradioBridge.proxyUrl === 'function') {
+    var proxied = window.MineradioBridge.proxyUrl(path);
+    if (proxied !== path) return proxied;
+  }
+  var raw = String(path || '');
+  if (LOCAL_FIRST_MODE && (raw.indexOf('/api/audio?') === 0 || raw.indexOf('/api/cover?') === 0)) {
+    try {
+      var u = new URL(raw, location.origin);
+      return u.searchParams.get('url') || raw;
+    } catch (_) {}
+  }
   return path;
 }
 function isMineradioWebShell() {
@@ -15552,6 +15584,33 @@ function renderHomeTiles() {
   var title = document.getElementById('home-rail-title');
   var note = document.getElementById('home-rail-note');
   if (!row) return;
+  if (LOCAL_FIRST_MODE) {
+    var summaryLocal = homeListenSummary();
+    var localTiles = [];
+    if (summaryLocal.recent) {
+      localTiles.push({ kind: 'recent', title: summaryLocal.recent.name || '继续听', sub: summaryLocal.recent.artist || summaryLocal.recent.source || '最近播放', cover: summaryLocal.recent.cover, record: summaryLocal.recent });
+    }
+    localTiles.push({ kind: 'local', title: '导入本地音乐', sub: '选择 MP3 / FLAC / WAV 等文件' });
+    localTiles.push({ kind: 'search', title: '试试公共源', sub: '输入歌名或歌手测试可用性', query: '' });
+    if (summaryLocal.topArtist) localTiles.push({ kind: 'profile', title: summaryLocal.topArtist.name, sub: '常听歌手 · ' + summaryLocal.topArtist.plays + ' 次', query: summaryLocal.topArtist.name });
+    localTiles.push({ kind: 'guide', title: '视觉控制台', sub: '调节粒子、歌词和舞台效果' });
+    localTiles = localTiles.slice(0, 5);
+    if (title) title.textContent = summaryLocal.recent ? '接着听' : '先从这里开始';
+    if (note) note.textContent = '本地播放为主，公共源仅用于测试';
+    row.innerHTML = localTiles.map(function(item, i){
+      var cover = homeTileCover(item);
+      var tone = homeToneForItem(item, i);
+      var coverClass = 'home-tile-cover' + (cover ? ' has-cover' : '');
+      return '<button class="home-tile" data-home-tone="' + escHtml(tone) + '" type="button" onclick="handleHomeTileClick(' + i + ')">' +
+        '<div class="' + coverClass + '" style="' + (cover ? 'background-image:url(&quot;' + escHtml(cssImageUrl(cover)) + '&quot;)' : '') + '"></div>' +
+        '<div class="home-tile-title">' + escHtml(item.title || '') + '</div>' +
+        '<div class="home-tile-sub">' + escHtml(item.sub || '') + '</div>' +
+      '</button>';
+    }).join('');
+    row._homeTiles = localTiles;
+    renderHomeMosaic(localTiles);
+    return;
+  }
   var tiles = [];
   var loggedOutHome = !homeDiscoverState.loggedIn && !hasAnyPlatformLogin();
   var weatherSongs = homeWeatherRadioState.radio && homeWeatherRadioState.radio.songs || [];
@@ -15601,6 +15660,41 @@ function renderHomeTiles() {
   renderHomeMosaic(tiles);
 }
 function renderHomeDiscover() {
+  if (LOCAL_FIRST_MODE) {
+    var summary = homeListenSummary();
+    var weatherCardTitle = document.getElementById('home-weather-card-title');
+    var weatherCardSub = document.getElementById('home-weather-card-sub');
+    var dailyTitle = document.getElementById('home-daily-title');
+    var dailySub = document.getElementById('home-daily-sub');
+    var privateTitle = document.getElementById('home-private-title');
+    var privateSub = document.getElementById('home-private-sub');
+    var continueTitle = document.getElementById('home-continue-title');
+    var continueSub = document.getElementById('home-continue-sub');
+    var profileTitle = document.getElementById('home-profile-title');
+    var profileSub = document.getElementById('home-profile-sub');
+    var libTitle = document.getElementById('home-library-title');
+    var libSub = document.getElementById('home-library-sub');
+    if (weatherCardTitle) weatherCardTitle.textContent = '本地导入';
+    if (weatherCardSub) weatherCardSub.textContent = '选择电脑里的音乐文件';
+    if (dailyTitle) dailyTitle.textContent = '公共源搜索';
+    if (dailySub) dailySub.textContent = '实验接口，成功率视站点限制';
+    if (privateTitle) privateTitle.textContent = '试搜一首';
+    if (privateSub) privateSub.textContent = '填入关键词后即可尝试';
+    if (continueTitle) continueTitle.textContent = summary.recent ? summary.recent.name : '继续听';
+    if (continueSub) continueSub.textContent = summary.recent ? (summary.recent.artist || summary.recent.source || '最近播放') : '最近播放会出现在这里';
+    if (profileTitle) profileTitle.textContent = summary.topArtist ? summary.topArtist.name : (summary.topSong ? summary.topSong.name : '听歌画像');
+    if (profileSub) profileSub.textContent = summary.topArtist ? ('常听歌手 · ' + summary.topArtist.plays + ' 次') : (summary.totalPlays ? summary.totalPlays + ' 次有效播放' : '播放几首后生成偏好');
+    if (libTitle) libTitle.textContent = '播放器控制台';
+    if (libSub) libSub.textContent = '展开底部播放控制';
+    setHomeArt('home-weather-art', '', 280);
+    setHomeArt('home-daily-art', '', 280);
+    setHomeArt('home-private-art', '', 280);
+    setHomeArt('home-continue-art', summary.recent && summary.recent.cover, 280);
+    setHomeArt('home-profile-art', summary.topSong && summary.topSong.cover || summary.recent && summary.recent.cover, 280);
+    setHomeArt('home-library-art', '', 280);
+    renderHomeTiles();
+    return;
+  }
   var sub = document.getElementById('home-subtitle');
   var loggedOutHome = !homeDiscoverState.loggedIn && !hasAnyPlatformLogin();
   var weather = homeWeatherRadioState.weather;
@@ -15684,6 +15778,17 @@ function renderHomeDiscover() {
   renderHomeTiles();
 }
 async function loadHomeDiscover(force) {
+  if (LOCAL_FIRST_MODE) {
+    homeDiscoverState.loading = false;
+    homeDiscoverState.loaded = true;
+    homeDiscoverState.loggedIn = false;
+    homeDiscoverState.mode = 'local-first';
+    homeDiscoverState.songs = [];
+    homeDiscoverState.playlists = [];
+    homeDiscoverState.podcasts = [];
+    renderHomeDiscover();
+    return;
+  }
   if (homeDiscoverState.loading) return;
   if (homeDiscoverState.loaded && !force) return;
   var token = ++homeDiscoverToken;
@@ -16016,6 +16121,17 @@ function updateEmptyHomeVisibility(opts) {
   if (show) {
     setPeek(document.getElementById('search-area'), true, 'search');
     renderHomeDiscover();
+    if (LOCAL_FIRST_MODE) {
+      homeDiscoverState.loading = false;
+      homeDiscoverState.loaded = true;
+      homeDiscoverState.loggedIn = false;
+      homeDiscoverState.mode = 'local-first';
+      homeDiscoverState.songs = [];
+      homeDiscoverState.playlists = [];
+      homeDiscoverState.podcasts = [];
+      renderHomeDiscover();
+      return show;
+    }
     scheduleHomeWeatherLoad(opts.forceLoad ? 1400 : 2400);
     if (!hasAnyPlatformLogin()) {
       homeDiscoverState.loading = false;
@@ -16038,7 +16154,8 @@ function runHomeSearch(query, mode) {
   homeSuppressed = false;
   setHomeControlsLocked(false);
   updateEmptyHomeVisibility();
-  if (mode) setSearchMode(mode);
+  if (LOCAL_FIRST_MODE) setSearchMode('song');
+  else if (mode) setSearchMode(mode);
   else if (searchMode === 'podcast') setSearchMode('song');
   var q = String(query || '').trim();
   var area = document.getElementById('search-area');
@@ -16077,6 +16194,10 @@ async function playHomeDaily() {
   homeForcedOpen = false;
   homeSuppressed = false;
   setHomeControlsLocked(false);
+  if (LOCAL_FIRST_MODE) {
+    runHomeSearch('');
+    return;
+  }
   if (!hasAnyPlatformLogin() && !homeDiscoverState.loggedIn) {
     showLoginModal({ source: 'home-daily' });
     return;
@@ -16100,6 +16221,10 @@ async function playHomePrivateRadio() {
   homeForcedOpen = false;
   homeSuppressed = false;
   setHomeControlsLocked(false);
+  if (LOCAL_FIRST_MODE) {
+    runHomeSearch('');
+    return;
+  }
   if (!hasAnyPlatformLogin() && !homeDiscoverState.loggedIn) {
     showLoginModal({ source: 'home-private' });
     return;
@@ -16128,6 +16253,10 @@ function playHomeSong(index) {
   homeForcedOpen = false;
   homeSuppressed = false;
   setHomeControlsLocked(false);
+  if (LOCAL_FIRST_MODE) {
+    runHomeSearch(index > 0 ? '周杰伦' : '');
+    return;
+  }
   var song = homeDiscoverState.songs[index];
   if (!song) {
     if (index > 0) playHomePrivateRadio();
@@ -16178,6 +16307,10 @@ function openHomeThirdCard() {
   openHomePodcast(0);
 }
 function openHomeLibrary() {
+  if (LOCAL_FIRST_MODE) {
+    openHomeLocalImport();
+    return;
+  }
   if (!hasAnyPlatformLogin() && !homeDiscoverState.loggedIn) {
     openHomeProductGuide();
     return;
@@ -16364,6 +16497,7 @@ function handleHomeTileClick(index) {
   else if (item.kind === 'login') showLoginModal({ source: 'home-tile' });
   else if (item.kind === 'local') openHomeLocalImport();
   else if (item.kind === 'guide') openHomeProductGuide();
+  else if (item.kind === 'search') runHomeSearch(item.query || '');
   else if (item.kind === 'playlist') openHomePlaylist(item.index);
   else if (item.kind === 'podcast') openHomePodcast(item.index);
   else if (item.kind === 'podcastSearch') { setSearchMode('podcast'); loadPodcastHot(); }
@@ -16382,6 +16516,7 @@ function songDurationLabel(song) {
 }
 function songSourceLabel(song) {
   if (!song) return '未知';
+  if (song.provider === 'public' || song.source === 'public' || song.type === 'public') return '公共源';
   if (song.provider === 'qq' || song.source === 'qq' || song.type === 'qq') return 'QQ 音乐';
   if (song.type === 'local') return '本地上传';
   if (song.type === 'podcast' || song.source === 'podcast') return '网易云播客';
@@ -16964,6 +17099,7 @@ function deleteCustomLyricForCurrent() {
 }
 function isCloudSong(song) {
   if (!song || !song.id) return false;
+  if (song.provider === 'public' || song.source === 'public' || song.type === 'public') return false;
   if (song.provider === 'qq' || song.source === 'qq' || song.type === 'qq') return false;
   if (song.type === 'local' || song.type === 'podcast' || song.source === 'podcast') return false;
   return !song.provider || song.provider === 'netease' || song.source === 'netease' || song.type === 'song';
@@ -16972,6 +17108,10 @@ function isSongLiked(song) {
   return !!(song && song.id && likedSongMap[String(song.id)]);
 }
 function ensureLoggedInForAction() {
+  if (LOCAL_FIRST_MODE) {
+    showToast('当前版本已隐藏账号同步，请使用本地播放');
+    return false;
+  }
   if (loginStatus.loggedIn) return true;
   showToast('登录后可同步到网易云');
   showLoginModal();
@@ -17314,7 +17454,9 @@ function updateSearchModeTabs() {
   var neteaseBtn = document.getElementById('search-mode-netease');
   var qqBtn = document.getElementById('search-mode-qq');
   var podcastBtn = document.getElementById('search-mode-podcast');
+  if (LOCAL_FIRST_MODE) searchMode = 'song';
   if (songBtn) {
+    songBtn.textContent = LOCAL_FIRST_MODE ? '公共源' : 'All';
     songBtn.classList.toggle('active', searchMode === 'song');
     songBtn.setAttribute('aria-selected', searchMode === 'song' ? 'true' : 'false');
   }
@@ -17331,13 +17473,16 @@ function updateSearchModeTabs() {
     podcastBtn.setAttribute('aria-selected', searchMode === 'podcast' ? 'true' : 'false');
   }
   if ($input) {
-    $input.placeholder = searchMode === 'podcast'
+    $input.placeholder = LOCAL_FIRST_MODE
+      ? '搜索公共源，或导入本地歌曲...'
+      : (searchMode === 'podcast'
       ? '搜索播客、电台...'
-      : (searchMode === 'qq' ? '搜索 QQ 音乐...' : (searchMode === 'netease' ? '搜索网易云音乐...' : '搜索歌曲、歌手...'));
+      : (searchMode === 'qq' ? '搜索 QQ 音乐...' : (searchMode === 'netease' ? '搜索网易云音乐...' : '搜索歌曲、歌手...')));
   }
   requestAnimationFrame(updateSearchPillGlassDisplacementMap);
 }
 function setSearchMode(mode) {
+  if (LOCAL_FIRST_MODE) mode = 'song';
   mode = (mode === 'podcast' || mode === 'netease' || mode === 'qq') ? mode : 'song';
   if (searchMode === mode) return;
   searchMode = mode;
@@ -17552,19 +17697,21 @@ document.addEventListener('click', function(e){
 updateSearchModeTabs();
 
 function songProviderKey(song) {
+  if (song && (song.provider === 'public' || song.source === 'public' || song.type === 'public')) return 'public';
+  if (song && (song.type === 'local' || song.source === 'local' || song.localUrl)) return 'local';
   if (song && (song.provider === 'qq' || song.source === 'qq' || song.type === 'qq')) return 'qq';
   return 'netease';
 }
 function songSourceTagHtml(song) {
   var key = songProviderKey(song);
-  var label = key === 'qq' ? 'QQ' : 'NE';
+  var label = key === 'qq' ? 'QQ' : (key === 'public' ? 'WEB' : (key === 'local' ? 'LOCAL' : 'NE'));
   return '<span class="tag-source ' + key + '">' + label + '</span>';
 }
 function searchResultMetaText(song) {
   var bits = [];
   if (song.artist) bits.push(song.artist);
   if (song.album) bits.push(song.album);
-  if (songProviderKey(song) === 'qq' && !song.playable) bits.push('QQ 播放需会话/授权');
+  if (songProviderKey(song) === 'public') bits.push('公共源实验');
   return bits.join('  ·  ') || songSourceLabel(song);
 }
 function searchResultMetaHtml(song, index) {
@@ -17572,7 +17719,7 @@ function searchResultMetaHtml(song, index) {
   var artist = String(song.artist || '').trim();
   var bits = [];
   if (song.album) bits.push(song.album);
-  if (songProviderKey(song) === 'qq' && !song.playable) bits.push('QQ 播放需会话/授权');
+  if (songProviderKey(song) === 'public') bits.push('公共源实验');
   var tail = bits.length ? (' · ' + escHtml(bits.join('  ·  '))) : '';
   if (!artist) return escHtml(searchResultMetaText(song));
   return '<button class="search-artist-link" type="button" onclick="event.stopPropagation();openSearchResultArtist(' + index + ')">' + escHtml(artist) + '</button>' + tail;
@@ -17691,23 +17838,82 @@ function mergeSongSearchResults(neteaseSongs, qqSongs, limit, q) {
   out.sort(function(a, b){ return (b._searchScore || 0) - (a._searchScore || 0); });
   return out.slice(0, limit);
 }
+function publicSourceUrl(base, path) {
+  return String(base || '').replace(/\/+$/, '') + path;
+}
+function publicSourceErrorText(err) {
+  var msg = String((err && err.message) || err || '');
+  if (/429/.test(msg)) return '公共源请求太频繁，稍后再试';
+  if (/403/.test(msg)) return '公共源拒绝了当前页面请求';
+  if (/failed to fetch|cors|network/i.test(msg)) return '公共源被浏览器跨域限制或网络拦截';
+  return msg || '公共源暂不可用';
+}
+async function fetchPublicSourceJson(path, opts) {
+  opts = opts || {};
+  var errors = [];
+  for (var i = 0; i < PUBLIC_SOURCE_BASES.length; i++) {
+    var base = PUBLIC_SOURCE_BASES[i];
+    var url = publicSourceUrl(base, path);
+    try {
+      var res = await fetch(url, {
+        cache: 'no-store',
+        mode: 'cors',
+        signal: opts.signal
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return await res.json();
+    } catch (err) {
+      errors.push(base + ': ' + publicSourceErrorText(err));
+    }
+  }
+  throw new Error(errors.join(' | ') || 'PUBLIC_SOURCE_FAILED');
+}
+function publicSourceSongFromRecord(record, index) {
+  record = record || {};
+  var rid = record.rid || record.id || record.songmid || record.mid || '';
+  var name = record.name || record.songname || record.title || '';
+  var artist = record.artist || record.singer || record.author || '';
+  var cover = record.pic || record.cover || record.img || record.albumPic || '';
+  return {
+    provider: 'public',
+    source: 'public',
+    type: 'public',
+    id: rid || ('public-' + index + '-' + simpleSearchNorm(name + artist)),
+    rid: rid,
+    name: name,
+    artist: artist,
+    album: record.album || record.albumname || '',
+    cover: cover,
+    duration: Number(record.duration || record.interval || 0) || 0,
+    playable: !!rid,
+    raw: record
+  };
+}
+async function fetchPublicSourceSearchResults(q) {
+  if (!PUBLIC_SOURCE_EXPERIMENTAL) return [];
+  var data = await fetchPublicSourceJson('/api/songs.php?type=search&keyword=' + encodeURIComponent(q));
+  var rows = Array.isArray(data && data.data) ? data.data : (Array.isArray(data && data.songs) ? data.songs : []);
+  return rows.map(publicSourceSongFromRecord).filter(function(song){ return song && song.name && song.rid; }).slice(0, 18);
+}
+async function fetchPublicSourcePlayback(song) {
+  var rid = song && (song.rid || song.id);
+  if (!rid) return { provider: 'public', url: '', playable: false, reason: 'url_unavailable', message: '公共源没有可用歌曲 ID' };
+  try {
+    var data = await fetchPublicSourceJson('/api/kw.php?rid=' + encodeURIComponent(rid) + '&type=json&level=exhigh&lrc=true');
+    var payload = data && data.data || data || {};
+    var url = payload.url || payload.play_url || payload.src || payload.music_url || '';
+    var lyric = payload.lrc || payload.lyric || payload.lyrics || '';
+    if (!url) return { provider: 'public', url: '', playable: false, reason: 'url_unavailable', message: (data && data.msg) || '公共源没有返回播放地址' };
+    song.publicAudioUrl = url;
+    song.publicLyric = lyric;
+    if (payload.pic || payload.cover) song.cover = song.cover || payload.pic || payload.cover;
+    return { provider: 'public', url: url, lyric: lyric, level: 'public', quality: '公共源', trial: false, playable: true };
+  } catch (err) {
+    return { provider: 'public', url: '', playable: false, reason: 'public_source_failed', message: publicSourceErrorText(err) };
+  }
+}
 async function fetchMusicSearchResults(q, mode) {
-  if (mode === 'qq') {
-    var qqOnly = await apiJson('/api/qq/search?keywords=' + encodeURIComponent(q) + '&limit=12');
-    return mergeSongSearchResults([], qqOnly.songs || [], 18, q);
-  }
-  if (mode === 'netease') {
-    var neOnly = await apiJson('/api/search?keywords=' + encodeURIComponent(q) + '&limit=18');
-    return mergeSongSearchResults(neOnly.songs || [], [], 18, q);
-  }
-  var result = await Promise.allSettled([
-    apiJson('/api/search?keywords=' + encodeURIComponent(q) + '&limit=14'),
-    apiJson('/api/qq/search?keywords=' + encodeURIComponent(q) + '&limit=12')
-  ]);
-  var neteaseSongs = result[0].status === 'fulfilled' ? ((result[0].value && result[0].value.songs) || []) : [];
-  var qqSongs = result[1].status === 'fulfilled' ? ((result[1].value && result[1].value.songs) || []) : [];
-  if (result[1].status === 'rejected') console.warn('QQ search failed:', result[1].reason);
-  return mergeSongSearchResults(neteaseSongs, qqSongs, 18, q);
+  return fetchPublicSourceSearchResults(q);
 }
 function renderSongSearchResults(songs) {
   playlist = songs || [];
@@ -17765,13 +17971,22 @@ async function doSearch(q, opts) {
     rememberSearchQuery(q);
     renderSongSearchResults(songs);
     if (opts.autoPlayFirst) playSearchResult(0);
-  } catch (err) { console.error('Search:', err); }
+  } catch (err) {
+    console.error('Search:', err);
+    if (requestSeq === searchRequestSeq) {
+      playlist = [];
+      searchLastResultQuery = '';
+      $results.innerHTML = '<div class="search-empty">' + escHtml(publicSourceErrorText(err)) + '</div>';
+      $results.classList.add('show');
+    }
+  }
 }
 
 // ============================================================
 //  音频上下文 & 频谱分析
 // ============================================================
 function initAudio() {
+  if (audioDirectMode) return;
   if (audioReady) return;
   audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   source = audioCtx.createMediaElementSource(audio);
@@ -17887,7 +18102,7 @@ function clearAudioFadeTimers() {
   }
 }
 function currentAudioOutputGain() {
-  if (gainNode && gainNode.gain && isFinite(gainNode.gain.value)) return clampRange(Number(gainNode.gain.value), 0, 1);
+  if (!audioDirectMode && gainNode && gainNode.gain && isFinite(gainNode.gain.value)) return clampRange(Number(gainNode.gain.value), 0, 1);
   if (audio && isFinite(audio.volume)) return clampRange(Number(audio.volume), 0, 1);
   return clampRange(targetVolume, 0, 1);
 }
@@ -17900,7 +18115,7 @@ function normalizeAudioFadeTarget(value) {
 }
 function holdAudioOutputGain(now) {
   var current = currentAudioOutputGain();
-  if (!gainNode || !audioCtx || !gainNode.gain) return current;
+  if (audioDirectMode || !gainNode || !audioCtx || !gainNode.gain) return current;
   var param = gainNode.gain;
   try {
     if (typeof param.cancelAndHoldAtTime === 'function') {
@@ -17920,7 +18135,7 @@ function holdAudioOutputGain(now) {
 function setAudioOutputGainImmediate(value) {
   value = normalizeAudioFadeTarget(value);
   clearAudioFadeTimers();
-  if (gainNode && audioCtx) {
+  if (!audioDirectMode && gainNode && audioCtx) {
     var now = audioCtx.currentTime || 0;
     gainNode.gain.cancelScheduledValues(now);
     gainNode.gain.setValueAtTime(value, now);
@@ -17933,7 +18148,7 @@ function rampAudioOutputGain(value, durationMs) {
   durationMs = Math.max(0, Number(durationMs) || 0);
   clearAudioFadeTimers();
   var serial = audioFadeSerial;
-  if (gainNode && audioCtx) {
+  if (!audioDirectMode && gainNode && audioCtx) {
     var now = audioCtx.currentTime || 0;
     holdAudioOutputGain(now);
     if (durationMs <= 0) {
@@ -17993,9 +18208,9 @@ function fadeOutAndPauseAudio() {
 function applyVolumeToAudio() {
   if (audio) {
     audio.muted = false;
-    audio.volume = gainNode ? 1 : targetVolume;
+    audio.volume = (gainNode && !audioDirectMode) ? 1 : targetVolume;
   }
-  if (gainNode && audioCtx) {
+  if (gainNode && audioCtx && !audioDirectMode) {
     var now = audioCtx.currentTime || 0;
     gainNode.gain.cancelScheduledValues(now);
     gainNode.gain.setTargetAtTime(targetVolume, now, 0.025);
@@ -18179,7 +18394,10 @@ function playSearchResult(i) {
 var firstPlayDone = false;
 
 function playbackProviderLabel(song) {
-  return songProviderKey(song) === 'qq' ? 'QQ 音乐' : '网易云';
+  var key = songProviderKey(song);
+  if (key === 'public') return '公共源';
+  if (key === 'local') return '本地文件';
+  return key === 'qq' ? 'QQ 音乐' : '网易云';
 }
 function playbackLoginProvider(song) {
   return songProviderKey(song) === 'qq' ? 'qq' : 'netease';
@@ -18198,7 +18416,7 @@ function playbackRestrictionMessage(song, data) {
     else if (category === 'copyright_unavailable') message = provider + '版权暂不可播';
     else message = provider + '没有返回可播放地址';
   }
-  if (category === 'login_required') return message + ' · 正在打开登录';
+  if (category === 'login_required' && !LOCAL_FIRST_MODE) return message + ' · 正在打开登录';
   if (category === 'copyright_unavailable' || category === 'url_unavailable') return message + ' · 可以试试另一个平台版本';
   return message;
 }
@@ -18275,6 +18493,7 @@ function isSameTitleArtist(source, candidate) {
   return a.some(function(name){ return b.indexOf(name) >= 0; });
 }
 function alternatePlaybackProvider(song) {
+  if (songProviderKey(song) === 'public') return '';
   return songProviderKey(song) === 'qq' ? 'netease' : 'qq';
 }
 function shouldAvoidFallbackToLoggedOutProvider(song) {
@@ -18363,6 +18582,7 @@ async function tryAutoPlaybackFallback(song, data, idx, token, opts) {
   var category = (data && data.reason) || restriction.category || '';
   var fromLabel = playbackProviderLabel(song);
   var targetKey = alternatePlaybackProvider(song);
+  if (!targetKey) return false;
   var targetLabel = targetKey === 'qq' ? 'QQ 音乐' : '网易云';
   if (shouldAvoidFallbackToLoggedOutProvider(song)) {
     showSourceFallbackNotice('未自动切换音源', fromLabel + ' 已登录但当前歌曲未返回完整播放地址；' + targetLabel + '未登录，已避免切到试听片段。可登录 ' + targetLabel + ' 后再试。');
@@ -18397,7 +18617,7 @@ function handlePlaybackUnavailable(song, data) {
   var restriction = (data && data.restriction) || {};
   var category = (data && data.reason) || restriction.category || '';
   showToast(playbackRestrictionMessage(song, data));
-  if (category === 'login_required') {
+  if (category === 'login_required' && !LOCAL_FIRST_MODE) {
     setTimeout(function(){
       var modal = document.getElementById('login-modal');
       if (!modal || modal.classList.contains('show')) return;
@@ -18543,25 +18763,30 @@ async function playQueueAt(idx, opts) {
 
   try {
     markPlayPhase('source-url');
-    var isQQPlayback = songProviderKey(song) === 'qq';
+    var providerKey = songProviderKey(song);
+    var isQQPlayback = providerKey === 'qq';
+    var isPublicPlayback = providerKey === 'public';
     var requestedQuality = normalizePlaybackQuality(opts.qualityOverride || playbackQuality);
     if (!isQQPlayback && requestedQuality === 'jymaster' && !hasProviderSvip('netease', loginStatus)) requestedQuality = 'hires';
     if (isQQPlayback && qqPlaybackQualityCeiling && (requestedQuality === 'jymaster' || requestedQuality === 'hires' || requestedQuality === 'lossless')) {
       requestedQuality = qqPlaybackQualityCeiling;
     }
     var qualityParam = '&quality=' + encodeURIComponent(requestedQuality);
-    var data = isQQPlayback
+    var data = isPublicPlayback
+      ? await fetchPublicSourcePlayback(song)
+      : (isQQPlayback
       ? await apiJson('/api/qq/song/url?mid=' + encodeURIComponent(song.mid || song.songmid || song.id || '') + '&mediaMid=' + encodeURIComponent(song.mediaMid || song.media_mid || '') + qualityParam)
-      : await apiJson('/api/song/url?id=' + song.id + qualityParam);
+      : await apiJson('/api/song/url?id=' + song.id + qualityParam));
     if (token !== trackSwitchToken) return;
     if (!data.url) {
       if (isQQPlayback && await retryQQPlaybackWithCompatibleQuality(song, idx, token, opts, data, requestedQuality)) return;
-      if (await tryAutoPlaybackFallback(song, data, idx, token, opts)) return;
+      if (!isPublicPlayback && await tryAutoPlaybackFallback(song, data, idx, token, opts)) return;
       handlePlaybackUnavailable(song, data);
       return;
     }
+    audioDirectMode = !!isPublicPlayback;
     var resolvedQualityText = playbackResolvedQualityText(data);
-    if (!isQQPlayback && playbackQualityWasDowngraded(requestedQuality, data.level)) {
+    if (!isPublicPlayback && !isQQPlayback && playbackQualityWasDowngraded(requestedQuality, data.level)) {
       showSourceFallbackNotice('网易云音质自动降级', '请求 ' + playbackQualityLabel(requestedQuality) + '，实际播放 ' + resolvedQualityText + '。');
     } else if (opts.qualitySwitch) {
       showSourceFallbackNotice('音质已切换', '实际播放: ' + resolvedQualityText + '。');
@@ -18578,15 +18803,16 @@ async function playQueueAt(idx, opts) {
       document.getElementById('trial-banner').classList.add('show');
     }
     markPlayPhase('audio-element');
-    if (!audio) { audio = new Audio(); audio.crossOrigin = 'anonymous'; }
+    if (!audio || (isPublicPlayback && audioReady)) { audio = new Audio(); }
     else {
       audioFadeSerial++;
       clearAudioFadeTimers();
       audio.pause();
     }
+    audio.crossOrigin = isPublicPlayback ? '' : 'anonymous';
     bindPlaybackProgressEvents(audio);
     applyVolumeToAudio();
-    var proxyAudioUrl = bridgeProxyUrl('/api/audio?url=' + encodeURIComponent(data.url));
+    var proxyAudioUrl = isPublicPlayback ? data.url : bridgeProxyUrl('/api/audio?url=' + encodeURIComponent(data.url));
     audio.src = proxyAudioUrl;
     updatePlaybackProgressUi();
     audio.onended = function(){
@@ -18649,7 +18875,8 @@ async function playQueueAt(idx, opts) {
         scheduleQueueBeatPrefetch(idx, 2600);
       } else {
         // 后台延迟分析, 避免新歌刚开始播放时抢占解码和渲染资源
-        scheduleBeatAnalysis(bmKey || song.id, proxyAudioUrl, bmTok, song);
+        if (isPublicPlayback) hideBeatChip();
+        else scheduleBeatAnalysis(bmKey || song.id, proxyAudioUrl, bmTok, song);
       }
     }
     } catch (visualErr) {
@@ -18711,17 +18938,17 @@ async function attemptAudioPlay(opts) {
   opts = opts || {};
   try {
       if (!audio) return false;
-      if (!audioReady) initAudio();
+      if (!audioDirectMode && !audioReady) initAudio();
       if (opts.fade !== false) preparePlaybackFadeIn();
       if (opts.manual) {
         var manualPlay = audio.play();
-        await resumeAudioAnalysis();
+        if (!audioDirectMode) await resumeAudioAnalysis();
         await manualPlay;
       } else {
-        await resumeAudioAnalysis();
+        if (!audioDirectMode) await resumeAudioAnalysis();
         await audio.play();
       }
-      await resumeAudioAnalysis();
+      if (!audioDirectMode) await resumeAudioAnalysis();
       switchPlaybackVisualToEmily();
       playing = true; setPlayIcon(true);
     if (opts.fade !== false) startPlaybackFadeIn();
@@ -19098,6 +19325,15 @@ async function fetchLyric(songOrId, token) {
     var song = (songOrId && typeof songOrId === 'object') ? songOrId : null;
     var provider = songProviderKey(song);
     var endpoint;
+    if (provider === 'public') {
+      var publicLyric = song && (song.publicLyric || song.lyric || song.lrc || '');
+      if (token !== trackSwitchToken) return;
+      var publicLines = parseLyricText(publicLyric || '');
+      var publicFinalLines = withLyricFallback(publicLines);
+      setOriginalLyricsState(publicFinalLines, false, publicLines.length ? 'lrc-line' : 'fallback');
+      applyPreferredLyricsForCurrent(true);
+      return;
+    }
     if (provider === 'qq') {
       var mid = song.mid || song.songmid || song.id || '';
       var qqId = song.qqId || (/^\d+$/.test(String(song.id || '')) ? song.id : '');
@@ -19476,7 +19712,7 @@ function renderQueuePanel(opts) {
     $ql.innerHTML = '<div style="text-align:center;padding:24px 0;color:rgba(255,255,255,.32);font-size:11.5px">队列为空，搜索后点 + 设为下一首</div>';
     renderMiniQueuePanel();
     var panel = document.getElementById('playlist-panel');
-    if (panel && (panel.classList.contains('show') || panel.classList.contains('peek')) && queueViewTab === 'queue') switchPlaylistTab('playlists');
+    if (!LOCAL_FIRST_MODE && panel && (panel.classList.contains('show') || panel.classList.contains('peek')) && queueViewTab === 'queue') switchPlaylistTab('playlists');
     return;
   }
   $ql.innerHTML = playQueue.map(function(song, i){
@@ -19497,6 +19733,14 @@ function renderQueuePanel(opts) {
   renderMiniQueuePanel({ scrollCurrent: miniQueueOpen });
 }
 async function refreshUserPlaylists(force) {
+  if (LOCAL_FIRST_MODE) {
+    resetPlaylistPanelRenderLimit();
+    var pl = document.getElementById('pl-list');
+    var pod = document.getElementById('podcast-list');
+    if (pl) pl.innerHTML = '<div style="text-align:center;padding:24px 0;color:rgba(255,255,255,.32);font-size:11.5px">当前版本以本地队列为主</div>';
+    if (pod) pod.innerHTML = '<div style="text-align:center;padding:14px 0;color:rgba(255,255,255,.28);font-size:11.5px">播客入口已隐藏</div>';
+    return;
+  }
   if (!loginStatus.loggedIn && !qqLoginStatus.loggedIn) {
     resetPlaylistPanelRenderLimit();
     document.getElementById('pl-list').innerHTML = '<div style="text-align:center;padding:24px 0;color:rgba(255,255,255,.32);font-size:11.5px">登录后显示个人歌单</div>';
@@ -20110,7 +20354,8 @@ function handleFiles(files) {
     safeShelfRebuild('play-local-file', true);
     suppressShelfPreviewForPlaybackSwitch();
     if (firstVisualPlay) { firstPlayDone = true; tweenParticleAlpha(uniforms.uAlpha.value || 0, 1.0, 260); }
-    if (!audio) { audio = new Audio(); audio.crossOrigin = 'anonymous'; }
+    audioDirectMode = false;
+    if (!audio || audioReady) { audio = new Audio(); audio.crossOrigin = 'anonymous'; }
     else audio.pause();
     bindPlaybackProgressEvents(audio);
     applyVolumeToAudio();
@@ -23336,6 +23581,10 @@ function bindModalBackdropClose() {
   });
 }
 function onUserBtnClick() {
+  if (LOCAL_FIRST_MODE) {
+    showToast('当前版本不使用账号登录');
+    return;
+  }
   if (hasAnyPlatformLogin()) showUserModal();
   else showLoginModal();
 }
@@ -23492,6 +23741,7 @@ async function refreshQQLoginStatus() {
   }
 }
 function syncPlatformStatusAfterBridgeReady(reason) {
+  if (LOCAL_FIRST_MODE) return;
   if (!(window.MineradioBridge && typeof window.MineradioBridge.isEnterAllowed === 'function' && window.MineradioBridge.isEnterAllowed())) return;
   if (webBridgePlatformStatusSynced && reason !== 'manual') return;
   webBridgePlatformStatusSynced = true;
@@ -23508,6 +23758,7 @@ window.addEventListener('mineradio-bridge-state', function(e){
   if (detail.enterAllowed) syncPlatformStatusAfterBridgeReady('bridge');
 });
 function startQQLoginStatusAutoRefresh() {
+  if (LOCAL_FIRST_MODE) return;
   if (qqLoginAutoRefreshTimer) clearInterval(qqLoginAutoRefreshTimer);
   qqLoginAutoRefreshTimer = setInterval(function(){
     refreshQQLoginStatus().catch(function(e){ console.warn('QQ login auto refresh failed:', e); });
@@ -23516,6 +23767,11 @@ function startQQLoginStatusAutoRefresh() {
 function renderUserBtn() {
   var btn = document.getElementById('user-btn');
   if (!btn) return;
+  if (LOCAL_FIRST_MODE) {
+    btn.style.display = 'none';
+    btn.innerHTML = '';
+    return;
+  }
   btn.classList.remove('multi-account');
   if (dualAccountMode && hasAnyPlatformLogin()) {
     activeAccountProvider = firstLoggedProvider();
@@ -23536,13 +23792,17 @@ function renderUserBtn() {
   } else {
     btn.classList.remove('logged-in');
     btn.classList.add('logged-out');
-    btn.title = '登录账号';
-    btn.innerHTML = '<span class="login-word">登录</span>';
+    btn.title = '本地模式';
+    btn.innerHTML = '<span class="login-word">本地</span>';
   }
   updatePlaybackQualityUi();
 }
 async function showLoginModal(opts) {
   opts = opts || {};
+  if (LOCAL_FIRST_MODE) {
+    showToast('当前版本不使用账号登录');
+    return;
+  }
   if (opts.provider) loginProvider = opts.provider === 'qq' ? 'qq' : 'netease';
   var modal = document.getElementById('login-modal');
   openGsapModal(modal);
@@ -24001,6 +24261,10 @@ function requestDualLoginMode() {
   enableDualAccountView();
 }
 function openProviderLogin(provider) {
+  if (LOCAL_FIRST_MODE) {
+    showToast('当前版本不使用账号登录');
+    return;
+  }
   provider = provider === 'qq' ? 'qq' : 'netease';
   closeUserModal();
   loginProvider = provider;
@@ -24155,6 +24419,7 @@ function runLoginGuideParticles(done) {
   loginGuideRaf = requestAnimationFrame(draw);
 }
 function maybeRunStartupLoginGuide(source) {
+  if (LOCAL_FIRST_MODE) return;
   if (startupLoginGuideShown || loginGuideAnimating) return;
   if (visualGuideActive) return;
   if (document.body.classList.contains('splash-active')) return;
@@ -24683,10 +24948,10 @@ var visualGuideSteps = [
     body: '播放、切歌、进度、队列和歌词都集中在底部，先把它当作一个正常播放器使用就可以。'
   },
   {
-    selector: '#user-btn',
-    kicker: '04 / Account',
-    title: '登录只是为了同步你的音乐库',
-    body: '登录后会同步歌单、红心和播客；不登录也可以搜索和播放，不会强制卡住你。'
+    selector: '#upload-btn',
+    kicker: '04 / Local',
+    title: '本地文件是默认路径',
+    body: '导入电脑里的音乐后可以直接播放；公共源搜索只是实验入口，失败时仍能回到本地播放。'
   },
   {
     target: 'shelf',
@@ -25759,16 +26024,25 @@ var splashReadyToEnter = false;
 var splashOfflineAllowed = false;
 
 function splashBridgePairUrl() {
+  if (LOCAL_FIRST_MODE) return '';
   if (window.MineradioBridge && typeof window.MineradioBridge.pairUrl === 'function') return window.MineradioBridge.pairUrl();
   return 'http://127.0.0.1:37891/pair?return=' + encodeURIComponent(location.href.split('#')[0]);
 }
 function splashBridgeCanEnter() {
+  if (LOCAL_FIRST_MODE) return true;
   if (!(window.MineradioBridge && typeof window.MineradioBridge.isEnterAllowed === 'function')) return true;
   return window.MineradioBridge.isEnterAllowed() || splashOfflineAllowed;
 }
 function updateSplashBridgeState(detail) {
   var panel = document.getElementById('splash-bridge');
   if (!panel) return;
+  if (LOCAL_FIRST_MODE) {
+    panel.style.display = 'none';
+    document.body.classList.add('bridge-enter-allowed');
+    var localEnter = document.querySelector('.splash-enter');
+    if (localEnter) localEnter.textContent = '点击进入';
+    return;
+  }
   var title = document.getElementById('splash-bridge-title');
   var text = document.getElementById('splash-bridge-text');
   var pair = document.getElementById('splash-bridge-pair');
@@ -25780,22 +26054,22 @@ function updateSplashBridgeState(detail) {
   if (pair) pair.href = splashBridgePairUrl();
   if (splashOfflineAllowed) {
     if (title) title.textContent = '离线模式';
-    if (text) text.textContent = '当前只使用本地文件播放。在线搜索、歌词、封面和平台歌单需要配对 Bridge。';
+    if (text) text.textContent = '当前只使用本地文件播放。公共源搜索为实验能力。';
   } else if (state.enterAllowed) {
-    if (title) title.textContent = 'Bridge 已配对';
-    if (text) text.textContent = '本机代理已连上。搜索可用；同步歌单、每日推荐、会员歌曲仍需要登录对应音乐平台。';
+    if (title) title.textContent = '本地模式';
+    if (text) text.textContent = '本地文件播放已可用。';
   } else if (hasBridge) {
-    if (title) title.textContent = 'Bridge 已安装，等待配对';
-    if (text) text.textContent = '检测到本机 Bridge，但当前页面还没有有效 token。请点击“配对 Bridge”。';
+    if (title) title.textContent = '本地模式';
+    if (text) text.textContent = '当前版本不需要本机服务。';
   } else if (state.checking) {
-    if (title) title.textContent = '正在检测 Bridge';
-    if (text) text.textContent = '正在连接 http://127.0.0.1:37891。';
+    if (title) title.textContent = '正在准备';
+    if (text) text.textContent = '正在准备播放器。';
   } else {
-    if (title) title.textContent = '未连接 Bridge';
-    if (text) text.textContent = '请先启动本机 Bridge，然后配对。当前 v1 需要源码运行 Bridge。';
+    if (title) title.textContent = '本地模式';
+    if (text) text.textContent = '本地文件播放已可用。';
   }
   var enter = document.querySelector('.splash-enter');
-  if (enter) enter.textContent = canEnter ? '点击进入' : '先配对 Bridge';
+  if (enter) enter.textContent = canEnter ? '点击进入' : '点击进入';
 }
 
 function splashClamp01(v) { return Math.max(0, Math.min(1, v)); }
@@ -26354,8 +26628,6 @@ function dismissSplash() {
       }
       requestAnimationFrame(function(){
         var guideStarted = maybeRunStartupVisualGuide('splash');
-        if (!guideStarted && !hasAnyPlatformLogin()) maybeRunStartupLoginGuide('splash');
-        else if (!guideStarted && !homeShown) maybeRunStartupLoginGuide('splash');
         setTimeout(maybeShowUploadTipOnce, 5200);
       });
     });
@@ -26371,7 +26643,7 @@ function markSplashReadyToEnter() {
   s.classList.add('ready');
   s.setAttribute('role', 'button');
   s.setAttribute('tabindex', '0');
-  s.setAttribute('aria-label', splashBridgeCanEnter() ? '点击进入 Mineradio' : '请先配对 Bridge');
+  s.setAttribute('aria-label', '点击进入 Mineradio');
   updateSplashBridgeState();
 }
 
@@ -26384,11 +26656,6 @@ document.addEventListener('DOMContentLoaded', function(){
   function requestSplashEnter() {
     playMineradioIntroSound();
     if (!splashReadyToEnter) return;
-    if (!splashBridgeCanEnter()) {
-      updateSplashBridgeState();
-      if (typeof showToast === 'function') showToast('请先配对 Bridge，或选择离线体验');
-      return;
-    }
     dismissSplash();
   }
   var retry = document.getElementById('splash-bridge-retry');
@@ -26818,21 +27085,14 @@ if (fx.floatLayer) createFloatLayer();
 if (fx.particleLyrics) createLyricsParticles();
 if (fx.backCover) createBackCoverLayer();
 initIdleGuideCanvas();
-var startupLoginStatusPromise = Promise.all([refreshLoginStatus(), refreshQQLoginStatus()]);
-startQQLoginStatusAutoRefresh();
-syncPlatformStatusAfterBridgeReady('startup');
-if (startupLoginStatusPromise && startupLoginStatusPromise.then) {
-  startupLoginStatusPromise.then(function(){
-    if (hasAnyPlatformLogin()) {
-      refreshUserPlaylists(true);
-      loadHomeDiscover(true);
-    }
-    if (document.body.classList.contains('splash-active')) return;
-    var homeShown = updateEmptyHomeVisibility({ forceLoad: hasAnyPlatformLogin() });
-    if (!hasAnyPlatformLogin()) maybeRunStartupLoginGuide('status');
-    else if (!homeShown) maybeRunStartupLoginGuide('status');
-  });
-}
+loginStatusChecked = true;
+loginStatusCheckFailed = false;
+homeDiscoverState.loading = false;
+homeDiscoverState.loaded = true;
+homeDiscoverState.loggedIn = false;
+homeDiscoverState.mode = 'local-first';
+renderUserBtn();
+if (!document.body.classList.contains('splash-active')) updateEmptyHomeVisibility({ forceLoad: true });
 var collectNameInput = document.getElementById('collect-new-name');
 if (collectNameInput) {
   collectNameInput.addEventListener('keydown', function(e){

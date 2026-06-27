@@ -2,7 +2,7 @@
   "name": "mineradio-web",
   "version": "0.1.0",
   "private": true,
-  "description": "Mineradio Web player with a local bridge for online music sources.",
+  "description": "Mineradio Web local-first visual music player.",
   "scripts": {
     "bridge": "node bridge/server.js",
     "build:web": "node scripts/build-web.js",
