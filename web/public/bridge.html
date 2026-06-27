@@ -6,7 +6,8 @@
   <title>Mineradio Bridge</title>
   <style>
     :root{color-scheme:dark;--bg:#090b10;--panel:#121620;--text:#f6f0df;--muted:#a7adba;--line:rgba(255,255,255,.12);--accent:#8be7c9;--warn:#ffd28a}
-    *{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 20% 0%,rgba(139,231,201,.13),transparent 30%),linear-gradient(180deg,#10131b,#07090d 62%);color:var(--text);font:15px/1.65 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans SC",sans-serif}
+    *{box-sizing:border-box}
+    body{margin:0;min-height:100vh;background:radial-gradient(circle at 20% 0%,rgba(139,231,201,.13),transparent 30%),linear-gradient(180deg,#10131b,#07090d 62%);color:var(--text);font:15px/1.65 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans SC",sans-serif}
     main{width:min(900px,calc(100vw - 32px));margin:0 auto;padding:44px 0 60px}
     h1{font-size:34px;line-height:1.1;margin:0 0 12px;letter-spacing:0}
     h2{font-size:18px;margin:30px 0 10px}
@@ -14,28 +15,42 @@
     .panel{border:1px solid var(--line);background:rgba(18,22,32,.82);border-radius:8px;padding:18px;margin-top:18px;box-shadow:0 18px 60px rgba(0,0,0,.28)}
     code,pre{font-family:"JetBrains Mono","Cascadia Mono",Consolas,monospace}
     pre{overflow:auto;margin:12px 0 0;padding:14px;border-radius:8px;background:#05070b;border:1px solid rgba(255,255,255,.08);color:#d7ffe8}
-    a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+    a{color:var(--accent);text-decoration:none}
+    a:hover{text-decoration:underline}
     .actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
     .btn{display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:0 14px;border:1px solid rgba(139,231,201,.35);border-radius:8px;background:rgba(139,231,201,.10);color:#fff;text-decoration:none}
     .btn.secondary{border-color:rgba(255,255,255,.16);background:rgba(255,255,255,.06)}
     .note{color:var(--warn)}
-    ol{padding-left:22px;color:var(--muted)}li{margin:6px 0}
+    ol{padding-left:22px;color:var(--muted)}
+    li{margin:6px 0}
   </style>
 </head>
 <body>
   <main>
     <h1>Mineradio Bridge</h1>
-    <p>Bridge 是运行在你电脑上的本地服务，网页播放器通过它访问在线音源、歌词、封面和音频代理。它不会直接读取你本机已安装的网易云音乐或 QQ 音乐客户端登录态。</p>
+    <p>Bridge 是运行在你电脑上的本地服务，网页播放器通过它访问在线音源、歌词、封面和音频代理。它只监听 <code>127.0.0.1:37891</code>，不会读取你本机已安装的网易云音乐或 QQ 音乐客户端登录态。</p>
 
     <div class="panel">
       <h2>普通用户</h2>
       <p>下载 Windows Bridge 压缩包，解压后双击 <code>Start-Mineradio-Bridge.cmd</code>。启动成功后会自动打开配对页面。</p>
       <div class="actions">
-        <a class="btn" href="https://github.com/MrChenyh/Mineradio-Web/actions/workflows/release-bridge.yml" target="_blank" rel="noreferrer">下载 Bridge 构建</a>
+        <a class="btn" href="https://github.com/MrChenyh/Mineradio-Web/releases/latest/download/Mineradio-Bridge-win-x64.zip">下载 Windows Bridge</a>
+        <a class="btn secondary" href="https://github.com/MrChenyh/Mineradio-Web/releases/latest" target="_blank" rel="noreferrer">查看 Release</a>
         <a class="btn secondary" href="http://127.0.0.1:37891/pair">已启动，立即配对</a>
         <a class="btn secondary" href="./">返回播放器</a>
       </div>
-      <p class="note">首次版本先提供 zip 包。解压后的 <code>Install-Mineradio-Bridge-Startup.cmd</code> 可设置开机自启。</p>
+      <p class="note">如果下载链接暂时 404，说明还没有发布 Bridge Release。请等待项目维护者发布第一个版本。</p>
+    </div>
+
+    <div class="panel">
+      <h2>使用步骤</h2>
+      <ol>
+        <li>下载并解压 <code>Mineradio-Bridge-win-x64.zip</code>。</li>
+        <li>双击 <code>Start-Mineradio-Bridge.cmd</code>。</li>
+        <li>浏览器打开 <code>http://127.0.0.1:37891/pair</code> 完成配对。</li>
+        <li>回到 Mineradio Web，即可使用在线搜索、歌词、封面和播放代理。</li>
+      </ol>
+      <p>可选：双击 <code>Install-Mineradio-Bridge-Startup.cmd</code>，让 Bridge 随 Windows 登录自动启动。</p>
     </div>
 
     <div class="panel">
@@ -46,12 +61,12 @@ npm run bridge</pre>
     </div>
 
     <h2>平台登录</h2>
-    <p>Bridge 配对只代表网页已连接本机代理。网易云音乐和 QQ 音乐账号仍需分别登录。Web 版优先使用 Cookie 导入，避免网易云旧二维码接口触发 App 风控警告。</p>
+    <p>Bridge 配对只代表网页已连接本机代理。网易云音乐和 QQ 音乐账号仍需分别登录。Web 版优先使用 Cookie 导入，避免旧二维码接口触发 App 风控警告。</p>
 
-    <h2>为什么不能自动启动</h2>
+    <h2>为什么不能自动启动？</h2>
     <p>浏览器网页不能自动启动本机程序，这是系统和浏览器的安全限制。下载安装 Bridge 后，可以通过开机自启脚本让它随 Windows 登录自动运行。</p>
 
-    <h2>为什么不能直接用 App 登录态</h2>
+    <h2>为什么不能直接用 App 登录态？</h2>
     <p>桌面 App 的登录态在各自私有存储里，通常加密并和客户端绑定。Bridge 不会读取这些私有数据；它只保存你主动导入或通过受控登录流程获得的网页会话。</p>
   </main>
 </body>
