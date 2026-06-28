@@ -1,90 +1,66 @@
 # Mineradio Web
 
-Mineradio Web 是一个可以部署到 GitHub Pages 的视觉音乐播放器。
+Mineradio Web 是一个静态网页播放器，可以直接部署到 GitHub Pages。默认支持本地音乐导入和歌曲试听推荐；安装浏览器插件后，可以使用浏览器里已经登录的网易云、QQ 音乐、酷狗网页会话做搜索、歌单、歌词和播放地址探测。
+
 在线页面：[https://mrchenyh.github.io/Mineradio-Web/](https://mrchenyh.github.io/Mineradio-Web/)
-
-当前版本默认支持本地歌曲播放、歌曲试听推荐、歌词兜底、队列、封面、可视化和主题效果。网页登录平台能力由浏览器扩展 **Mineradio Connector** 提供，不再使用独立本地后端。
-
-## 安装 Connector 插件
-
-插件适用于 Microsoft Edge 和 Google Chrome。
-
-1. 下载插件包：[mineradio-connector.zip](https://mrchenyh.github.io/Mineradio-Web/downloads/mineradio-connector.zip)。
-2. 解压到一个固定文件夹，例如 `D:\Apps\Mineradio Connector`，后续不要删除这个文件夹。
-3. Edge 打开 `edge://extensions`，Chrome 打开 `chrome://extensions`。
-4. 打开右上角“开发人员模式”。
-5. 点击“加载解压缩的扩展”，选择刚刚解压出来的插件文件夹。
-6. 打开 [网易云音乐网页版](https://music.163.com/)、[QQ 音乐网页版](https://y.qq.com/) 或 [酷狗音乐网页版](https://www.kugou.com/) 并登录。
-7. 打开或刷新 [Mineradio Web](https://mrchenyh.github.io/Mineradio-Web/)，搜索歌曲即可看到 Connector 音源结果。
-
-插件图标弹窗里有“打开播放器”“打开网易云”“打开 QQ 音乐”“打开酷狗”“刷新状态”按钮，方便确认网页是否已经检测到登录态。
-
-更新插件时，重新下载 zip，解压覆盖原文件夹，然后在扩展管理页点击该扩展的“重新加载”。
 
 ## 使用方式
 
-- 不安装插件：可以导入本地歌曲播放，也可以使用首页“歌曲试听推荐”。该推荐底层使用 iTunes preview，只提供 30 秒片段。
-- 安装插件：可以尝试使用已登录的网易云、QQ 音乐、酷狗网页登录态搜索、获取封面、歌词和可播放地址。
-- 当某个平台结果不可播放时，网页会尝试同名歌曲的其它 Connector 音源，最后用歌曲试听推荐兜底。
-- 首页会在检测到网易云网页登录态后，展示账号收藏歌单和每日推荐；QQ/酷狗的首页收藏入口会在接口稳定后再开启。
-- 本地歌曲可以使用完整的封面粒子律动和离线 beatmap；在线音源受浏览器跨域限制，会使用稳定的实时脉冲动效兜底。
+1. 打开在线页面，未安装插件也可以导入本地歌曲或播放试听推荐。
+2. 下载插件包：页面启动页的“下载 Connector 插件”，或仓库里的 `web/public/downloads/mineradio-connector.zip`。
+3. 解压到一个固定文件夹。
+4. Edge 打开 `edge://extensions`，Chrome 打开 `chrome://extensions`。
+5. 开启“开发人员模式”，选择“加载解压缩的扩展”，选中刚才解压的文件夹。
+6. 在浏览器里登录 `music.163.com`、`y.qq.com` 或 `www.kugou.com`。
+7. 刷新 Mineradio Web，插件弹窗显示账号状态后即可搜索和播放。
 
-## Tampermonkey 能否替代插件
+插件更新后，需要在扩展管理页点击“重新加载”。如果 QQ 音乐显示“账号已检测到，但播放授权 Cookie 不完整”，请先在 `y.qq.com` 网页播放任意一首歌，再刷新插件状态。
 
-不建议把当前 Connector 改成 Tampermonkey 作为主方案。
+## 当前音源策略
 
-Tampermonkey 可以做页面按钮、跳转、简单同站请求等辅助能力，但它不适合替代浏览器扩展：
+- 本地文件：不需要插件，直接导入播放。
+- 歌曲试听推荐：不需要插件，默认作为未登录托底渠道。
+- 网易云扩展：读取浏览器网页登录态，用于账号状态、歌单、搜索、歌词和播放探测。
+- QQ 音乐扩展：读取 QQ 音乐网页登录态，优先借用已打开的 `y.qq.com` 标签页请求播放地址。
+- 酷狗扩展：已接入状态检测和搜索/播放探测，稳定性仍取决于网页端返回。
+- Apple Music、汽水音乐等渠道仍标记为“正在加入中”，稳定前不作为默认可用音源。
 
-- 不能像扩展一样使用 `chrome.cookies` 读取指定音乐站登录态。
-- 不能稳定使用 `declarativeNetRequest` 修改音乐媒体请求需要的 `Referer`、`Origin` 等请求头。
-- 不能提供稳定的常驻后台和跨标签页请求转发。
-- GitHub Pages 页面仍会遇到跨域、媒体防盗链和浏览器安全限制。
+播放失败时，播放器会先自动查找同名同歌手的其他音源；收藏/歌单播放时，如果当前歌曲不可播，会继续尝试下一首。最后由歌曲试听推荐兜底。
 
-后续可以额外做一个 Tampermonkey 辅助脚本，用来快速打开播放器、提示登录状态或在音乐站页面内复制歌曲信息，但它不适合作为完整音源连接层。
+## 油猴脚本
 
-## 本地开发
+辅助脚本在 `tampermonkey/mineradio-helper.user.js`。
 
-```powershell
+安装方式：
+
+1. 安装 Tampermonkey。
+2. 新建脚本，把 `tampermonkey/mineradio-helper.user.js` 内容粘进去并保存。
+3. 在网易云、QQ 音乐、酷狗网页上会出现一个 Mineradio 浮动按钮。
+4. 点击按钮会打开 Mineradio Web，并把当前网页标题作为搜索词带过去。
+
+油猴脚本只是快捷入口和搜索辅助，不能完整替代浏览器扩展。原因是它没有 MV3 扩展级的 cookies、跨站请求和媒体请求头权限，不能稳定接管各音乐平台的登录态和播放地址探测。
+
+## 开发
+
+```bash
 npm install
-npm run build:web
-npm run preview:web
+npm run check
 npm run package:extension
+npm run build:web
 ```
 
-本地 Edge 插件测试：
+本地预览：
 
-```powershell
-npm run build:web
+```bash
 npm run preview:web
+```
+
+Edge 插件测试：
+
+```bash
 npm run test:edge-extension
 ```
 
-## 项目结构
+## 授权与声明
 
-```text
-web/public/              GitHub Pages 静态播放器
-web/public/downloads/    Pages 可下载文件
-extension/               Chrome/Edge MV3 Connector 插件源码
-scripts/build-web.js     构建 Pages 静态文件
-scripts/package-extension.js  打包插件 zip
-```
-
-## 已测试音源
-
-- 歌曲试听推荐：默认首页试听和播放兜底，底层使用 iTunes Search API，只提供 30 秒 preview。
-- LRCLIB：可从浏览器直接请求的歌词兜底。
-- 网易云 Connector：基于 `music.163.com` 网页登录态测试搜索、首页推荐、封面、歌词和播放地址探测。
-- QQ 音乐 Connector：基于 `y.qq.com` 网页登录态测试搜索、封面、歌词和播放地址探测。
-- 酷狗 Connector：基于 `www.kugou.com` 网页登录态测试搜索、封面、歌词和播放地址探测。
-
-Apple Music、汽水音乐等渠道正在加入中；只有能稳定搜索并获取播放内容后才会进入播放器。
-
-## 隐私说明
-
-Connector 不会把音乐站 Cookie 原文发送给 Mineradio Web 页面。扩展在后台请求音乐站接口，返回给页面的是连接状态、歌曲元数据、歌词和播放地址探测结果。
-
-## 来源与授权
-
-本项目基于 [XxHuberrr/Mineradio](https://github.com/XxHuberrr/Mineradio) 改造，保留 GPL-3.0 授权和来源说明。相关文件见 `LICENSE`、`NOTICE.md`、`UPSTREAM_README.md`、`PRIVACY.md`、`SECURITY.md`。
-
-Mineradio Web 不是网易云音乐、QQ 音乐、腾讯音乐娱乐、酷狗音乐、Apple Music 或其它第三方平台的官方客户端。本项目不提供付费内容、会员限制、音质限制或版权限制的绕过能力。
+本项目来自 Mineradio Web 迁移实验，保留原项目 GPL-3.0 授权与来源说明。音乐平台内容、账号和播放权限归各平台所有，本项目仅做个人学习和本地测试用途。

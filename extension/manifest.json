@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Mineradio Connector",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Connects Mineradio Web to browser music sessions for local testing.",
   "permissions": [
     "cookies",
@@ -24,6 +24,8 @@
     "https://mrchenyh.github.io/*",
     "http://127.0.0.1/*",
     "http://localhost/*",
+    "https://qq.com/*",
+    "https://*.qq.com/*",
     "https://y.qq.com/*",
     "https://u.y.qq.com/*",
     "https://c.y.qq.com/*",

@@ -10313,6 +10313,10 @@ function updateBeatDiskCacheStatus(data) {
 
 async function ensureBeatDiskCacheStatus() {
   if (beatDiskCacheStatus.checked) return beatDiskCacheStatus;
+  if (LOCAL_FIRST_MODE) {
+    updateBeatDiskCacheStatus({ enabled:false, mode:'memory-only', reason:'STATIC_WEB' });
+    return beatDiskCacheStatus;
+  }
   try {
     updateBeatDiskCacheStatus(await apiJson('/api/beatmap/cache/status?t=' + Date.now()));
   } catch (e) {
@@ -17645,6 +17649,24 @@ function runSearchHistory(q) {
   doSearch(q);
   $input.focus();
 }
+function consumeStartupSearchParam() {
+  try {
+    var params = new URLSearchParams(window.location.search || '');
+    var q = String(params.get('q') || params.get('search') || '').trim();
+    if (!q || !$input) return;
+    $input.value = q;
+    setTimeout(function(){
+      setPeek(document.getElementById('search-area'), true, 'startup-search');
+      doSearch(q);
+    }, 520);
+    if (history && history.replaceState) {
+      params.delete('q');
+      params.delete('search');
+      var next = window.location.pathname + (params.toString() ? '?' + params.toString() : '') + window.location.hash;
+      history.replaceState(null, document.title, next);
+    }
+  } catch (e) {}
+}
 function setupMineradioConnector() {
   var CHANNEL = 'mineradio-connector';
   window.addEventListener('message', function(event){
@@ -17991,6 +18013,7 @@ $results.addEventListener('click', function(e){
   }
 });
 setupMineradioConnector();
+consumeStartupSearchParam();
 document.addEventListener('click', function(e){
   var searchArea = document.getElementById('search-area');
   if (!searchArea.contains(e.target)) {
@@ -18761,12 +18784,12 @@ function updateDirectAudioPulse(dt) {
   var shimmer = 0.5 + 0.5 * Math.sin(t * (2.2 + (directPulseSeed % 5) * 0.09) + directPulseSeed);
   var bar = Math.floor(t * tempo);
   var accent = bar % 4 === 0 ? 1 : 0.62;
-  beatPulse = Math.max(beatPulse * Math.pow(0.50, dt), beatWave * 0.34 * accent + offBeat * 0.035);
-  if (beatWave > 0.82 && beatPulse > 0.18) beatOnsetFlag = true;
-  smoothBass += ((0.12 + beatWave * 0.48 * accent + offBeat * 0.06) - smoothBass) * 0.12;
-  smoothMid += ((0.12 + shimmer * 0.18 + offBeat * 0.10) - smoothMid) * 0.08;
-  smoothTreb += ((0.08 + (1 - shimmer) * 0.16) - smoothTreb) * 0.07;
-  smoothEnergy += ((0.16 + beatWave * 0.32 + shimmer * 0.10) - smoothEnergy) * 0.09;
+  beatPulse = Math.max(beatPulse * Math.pow(0.48, dt), beatWave * 0.44 * accent + offBeat * 0.045);
+  if (beatWave > 0.78 && beatPulse > 0.16) beatOnsetFlag = true;
+  smoothBass += ((0.14 + beatWave * 0.62 * accent + offBeat * 0.07) - smoothBass) * 0.14;
+  smoothMid += ((0.13 + shimmer * 0.20 + offBeat * 0.13) - smoothMid) * 0.09;
+  smoothTreb += ((0.09 + (1 - shimmer) * 0.18) - smoothTreb) * 0.08;
+  smoothEnergy += ((0.18 + beatWave * 0.40 + shimmer * 0.12) - smoothEnergy) * 0.10;
   lyricSunTarget = Math.max(lyricSunTarget * 0.94, Math.max(0, smoothMid - 0.14) * 0.45);
   lyricSunHold += (lyricSunTarget - lyricSunHold) * 0.035;
   lyricSunEnergy += (lyricSunHold - lyricSunEnergy) * 0.035;
@@ -19288,8 +19311,12 @@ function fallbackAttemptKey(song) {
 function findFallbackCandidateInList(source, list, triedKeys) {
   triedKeys = triedKeys || {};
   var candidates = [];
+  var sourceProvider = songProviderKey(source);
   (list || []).forEach(function(candidate, index){
     if (!candidate || candidate === source) return;
+    var candidateProvider = songProviderKey(candidate);
+    if (candidateProvider === sourceProvider) return;
+    if (source && source.trial && candidate && candidate.trial) return;
     if (triedKeys[fallbackAttemptKey(candidate)]) return;
     if (!isSameTitleArtist(source, candidate) && normalizeMatchText(source && source.name) !== normalizeMatchText(candidate && candidate.name)) return;
     candidates.push({ song: candidate, score: fallbackCandidateScore(source, candidate, index) });
@@ -19384,7 +19411,7 @@ function nextUnblockedQueueIndex(idx) {
   }
   return -1;
 }
-function skipFailedQueueItem(idx, token, message) {
+function skipFailedQueueItem(idx, token, message, nextOpts) {
   hideLoading();
   if (token !== trackSwitchToken) return;
   markQueueItemPlaybackFailed(idx);
@@ -19399,7 +19426,7 @@ function skipFailedQueueItem(idx, token, message) {
   }
   showSourceFallbackNotice('已跳过受限歌曲', message || '未找到同名同歌手的另一个平台版本，正在播放下一首。');
   currentIdx = nextIdx;
-  playQueueAt(nextIdx, { fallbackDepth: 0 });
+  playQueueAt(nextIdx, Object.assign({ fallbackDepth: 0 }, nextOpts || {}));
 }
 async function tryAutoPlaybackFallback(song, data, idx, token, opts) {
   opts = opts || {};
@@ -19409,7 +19436,7 @@ async function tryAutoPlaybackFallback(song, data, idx, token, opts) {
   var fallbackDepth = Number(opts.fallbackDepth || 0) || 0;
   if (fallbackDepth > 4) {
     if (keepCurrentOnFallbackMiss) return false;
-    skipFailedQueueItem(idx, token, '已尝试多个音源仍不可播，正在播放下一首。');
+    skipFailedQueueItem(idx, token, '已尝试多个音源仍不可播，正在播放下一首。', opts.autoSkipUnavailable ? { autoSkipUnavailable: true } : null);
     return true;
   }
   if (!song || song.type === 'local' || song.type === 'podcast' || song.source === 'podcast') return false;
@@ -19422,17 +19449,22 @@ async function tryAutoPlaybackFallback(song, data, idx, token, opts) {
     showSourceFallbackNotice('未自动切换音源', fromLabel + ' 已登录但当前歌曲未返回完整播放地址；' + targetLabel + '未登录，已避免切到试听片段。可登录 ' + targetLabel + ' 后再试。');
     return false;
   }
-  showSourceFallbackNotice('正在自动换源', fromLabel + ' 当前不可播，正在查找同名同歌手的其他音源。');
+  var suppressTrialSearchNotice = keepCurrentOnFallbackMiss && category === 'trial_only' && isPublicSourceProviderKey(songProviderKey(song));
+  if (!suppressTrialSearchNotice) {
+    showSourceFallbackNotice('正在自动换源', fromLabel + ' 当前不可播，正在查找同名同歌手的其他音源。');
+  }
   try {
     var alternate = await searchAlternatePlatformSong(song, triedKeys);
     if (token !== trackSwitchToken) return true;
     if (!alternate) {
       if (keepCurrentOnFallbackMiss) {
-        if (category === 'trial_only') showSourceFallbackNotice('暂用试听片段', '没有找到同名同歌手的完整音源，先播放当前试听版本。');
+        if (category === 'trial_only' && !isPublicSourceProviderKey(songProviderKey(song))) {
+          showSourceFallbackNotice('暂用试听片段', '没有找到同名同歌手的完整音源，先播放当前试听版本。');
+        }
         return false;
       }
       if (category === 'login_required') return false;
-      skipFailedQueueItem(idx, token, '没有找到同名同歌手的其他音源，正在播放下一首。');
+      skipFailedQueueItem(idx, token, '没有找到同名同歌手的其他音源，正在播放下一首。', opts.autoSkipUnavailable ? { autoSkipUnavailable: true } : null);
       return true;
     }
     alternate.autoFallbackFrom = songProviderKey(song);
@@ -19440,12 +19472,12 @@ async function tryAutoPlaybackFallback(song, data, idx, token, opts) {
     safeRenderQueuePanel('source-fallback', { scrollCurrent: miniQueueOpen });
     safeShelfRebuild('source-fallback');
     showSourceFallbackNotice('已自动切换音源', (song.name || '当前歌曲') + ' 已从 ' + fromLabel + ' 切到 ' + playbackProviderLabel(alternate) + '。');
-    await playQueueAt(idx, { fallbackDepth: fallbackDepth + 1, fallbackTriedKeys: triedKeys });
+    await playQueueAt(idx, { fallbackDepth: fallbackDepth + 1, fallbackTriedKeys: triedKeys, autoSkipUnavailable: !!opts.autoSkipUnavailable });
     return true;
   } catch (e) {
     if (token !== trackSwitchToken) return true;
     if (keepCurrentOnFallbackMiss) return false;
-    skipFailedQueueItem(idx, token, '自动换源搜索失败，正在播放下一首。');
+    skipFailedQueueItem(idx, token, '自动换源搜索失败，正在播放下一首。', opts.autoSkipUnavailable ? { autoSkipUnavailable: true } : null);
     return true;
   }
 }
@@ -19623,6 +19655,10 @@ async function playQueueAt(idx, opts) {
     if (!data.url) {
       if (isQQPlayback && await retryQQPlaybackWithCompatibleQuality(song, idx, token, opts, data, requestedQuality)) return;
       if (await tryAutoPlaybackFallback(song, data, idx, token, opts)) return;
+      if (opts.autoSkipUnavailable && playQueue.length > 1) {
+        skipFailedQueueItem(idx, token, '当前歌曲不可播，正在尝试歌单下一首。', { autoSkipUnavailable: true });
+        return;
+      }
       handlePlaybackUnavailable(song, data);
       return;
     }
@@ -19673,8 +19709,17 @@ async function playQueueAt(idx, opts) {
     audio.onerror = function(){
       if (token !== trackSwitchToken) return;
       tryAutoPlaybackFallback(song, { reason: 'url_unavailable', message: '音频地址加载失败' }, idx, token, opts).then(function(switched){
-        if (!switched) handlePlaybackUnavailable(song, { reason: 'url_unavailable', message: '音频地址加载失败' });
+        if (switched) return;
+        if (opts.autoSkipUnavailable && playQueue.length > 1) {
+          skipFailedQueueItem(idx, token, '当前歌曲加载失败，正在尝试歌单下一首。', { autoSkipUnavailable: true });
+          return;
+        }
+        handlePlaybackUnavailable(song, { reason: 'url_unavailable', message: '音频地址加载失败' });
       }).catch(function(){
+        if (opts.autoSkipUnavailable && playQueue.length > 1) {
+          skipFailedQueueItem(idx, token, '当前歌曲加载失败，正在尝试歌单下一首。', { autoSkipUnavailable: true });
+          return;
+        }
         handlePlaybackUnavailable(song, { reason: 'url_unavailable', message: '音频地址加载失败' });
       });
     };
@@ -19747,6 +19792,10 @@ async function playQueueAt(idx, opts) {
     if (!playbackStarted) {
       if (isQQPlayback && await retryQQPlaybackWithCompatibleQuality(song, idx, token, opts, data, requestedQuality)) return;
       if (await tryAutoPlaybackFallback(song, { reason: 'play_start_failed', message: '播放启动失败' }, idx, token, opts)) return;
+      if (opts.autoSkipUnavailable && playQueue.length > 1) {
+        skipFailedQueueItem(idx, token, '当前歌曲播放启动失败，正在尝试歌单下一首。', { autoSkipUnavailable: true });
+        return;
+      }
       forcePlaybackControlsInteractive();
       if (opts.manual) {
         showToast('播放启动失败，请重新选择歌曲');
@@ -19776,7 +19825,7 @@ async function playQueueAt(idx, opts) {
     hideLoading();
     forcePlaybackControlsInteractive();
     if (!isPlaybackRecursionError(err) && token === trackSwitchToken && !opts.manual && playQueue.length > 1) {
-      skipFailedQueueItem(idx, token, '当前歌曲加载失败，正在尝试队列里的下一首。');
+      skipFailedQueueItem(idx, token, '当前歌曲加载失败，正在尝试队列里的下一首。', opts.autoSkipUnavailable ? { autoSkipUnavailable: true } : null);
       return;
     }
     showToast(playbackFailureToastText(err));
@@ -19786,7 +19835,7 @@ async function playQueueAt(idx, opts) {
     hideLoading();
     forcePlaybackControlsInteractive();
     if (!isPlaybackRecursionError(setupErr) && typeof token !== 'undefined' && token === trackSwitchToken && !opts.manual && playQueue.length > 1) {
-      skipFailedQueueItem(idx, token, '当前歌曲切换失败，正在尝试队列里的下一首。');
+      skipFailedQueueItem(idx, token, '当前歌曲切换失败，正在尝试队列里的下一首。', opts.autoSkipUnavailable ? { autoSkipUnavailable: true } : null);
       return;
     }
     showToast(playbackFailureToastText(setupErr));
@@ -20789,7 +20838,7 @@ function playPlaylistPanelDetailTrack(index) {
   safeSwitchPlaylistTab('queue', 'playlist-panel-detail');
   safeShelfRebuild('playlist-panel-detail', true);
   forcePlaybackControlsInteractive();
-  playQueueAt(index).catch(function(e){ console.warn('[PlaylistPanelDetailPlay]', e); });
+  playQueueAt(index, { autoSkipUnavailable: true }).catch(function(e){ console.warn('[PlaylistPanelDetailPlay]', e); });
 }
 function openPlaylistPanelDetailArtist(index) {
   var song = playlistPanelDetailState.tracks && playlistPanelDetailState.tracks[index];
@@ -21066,7 +21115,9 @@ async function loadPlaylistIntoQueueById(id, autoplay, title) {
   try {
     if (r.error) { showToast('歌单加载失败: ' + r.error); return; }
     if (!r.tracks || !r.tracks.length) { showToast('歌单为空'); return; }
-    playQueue = r.tracks.map(cloneSong);
+    playQueue = r.tracks.map(cloneSong).sort(function(a, b){
+      return (b.playable !== false ? 1 : 0) - (a.playable !== false ? 1 : 0);
+    });
     if (!qqPlaylistId && isLikedPlaylistContext(id, title, r.playlist)) markSongsLiked(playQueue, true);
     if (!qqPlaylistId) syncLikeStatusForSongs(playQueue);
     currentIdx = 0;
@@ -21076,7 +21127,7 @@ async function loadPlaylistIntoQueueById(id, autoplay, title) {
     forcePlaybackControlsInteractive();
     if (autoplay) {
       try {
-        await playQueueAt(0);
+        await playQueueAt(0, { autoSkipUnavailable: true });
       } catch (playErr) {
         console.warn('[PlaylistAutoplay]', id, playErr);
         showToast('歌单已载入，播放启动失败');

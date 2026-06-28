@@ -739,19 +739,35 @@ function normalizeQQUin(raw) {
 
 function qqCookieUin(obj) {
   obj = obj || {};
-  const raw = Number(obj.login_type) === 2 ? (obj.wxuin || obj.uin || obj.p_uin) : (obj.uin || obj.qqmusic_uin || obj.wxuin || obj.p_uin);
+  const raw = Number(obj.login_type) === 2
+    ? (obj.wxuin || obj.uin || obj.p_uin || obj.luin || obj.pt2gguin || obj.o_cookie)
+    : (obj.uin || obj.qqmusic_uin || obj.wxuin || obj.p_uin || obj.luin || obj.pt2gguin || obj.o_cookie);
   return normalizeQQUin(raw);
 }
 
 function qqCookieMusicKey(obj) {
   obj = obj || {};
-  return obj.qm_keyst || obj.qqmusic_key || obj.music_key || obj.p_skey || obj.skey ||
-    obj.psrf_qqaccess_token || obj.psrf_qqrefresh_token || obj.wxrefresh_token || obj.wxskey || '';
+  return obj.qm_keyst || obj.qqmusic_key || obj.music_key || obj.p_skey || obj.p_lskey || obj.skey ||
+    obj.psrf_qqaccess_token || obj.psrf_qqrefresh_token || obj.wxrefresh_token || obj.wxskey ||
+    obj.tmeLoginKey || obj.access_token || '';
 }
 
 function qqCookiePlaybackKey(obj) {
   obj = obj || {};
   return obj.qm_keyst || obj.qqmusic_key || obj.music_key || obj.wxskey || '';
+}
+
+function qqCookieLoginReady(obj) {
+  obj = obj || {};
+  if (!qqCookieUin(obj)) return false;
+  return !!(qqCookieMusicKey(obj) || obj.uin || obj.p_uin || obj.qqmusic_uin || obj.wxuin ||
+    obj.luin || obj.pt2gguin || obj.o_cookie || obj.openid || obj.login_type || obj.tmeLoginType);
+}
+
+function qqCookieDiagnosticNames(obj) {
+  return Object.keys(obj || {})
+    .filter(name => /uin|skey|qqmusic|qm_|token|login|openid|wx|ptnick/i.test(name))
+    .slice(0, 18);
 }
 
 function decodeQQCookieValue(value) {
@@ -776,14 +792,30 @@ function qqCookieNickname(obj, uin) {
 
 function qqCookieAvatar(obj, uin) {
   obj = obj || {};
-  const direct = obj.qqmusic_avatar || obj.avatar || obj.avatarUrl || obj.headpic || '';
+  const direct = obj.qqmusic_avatar || obj.avatar || obj.avatarUrl || obj.headpic || obj.headurl || '';
   if (direct) return decodeQQCookieValue(direct);
-  uin = normalizeQQUin(uin || qqCookieUin(obj));
-  return uin ? 'https://q1.qlogo.cn/g?b=qq&nk=' + encodeURIComponent(uin) + '&s=100' : '';
+  const candidates = [obj.o_cookie, obj.p_uin, obj.uin, obj.luin, obj.pt2gguin, uin || qqCookieUin(obj)];
+  for (const candidate of candidates) {
+    const avatarUin = normalizeQQUin(candidate);
+    if (avatarUin && avatarUin.length >= 5 && avatarUin.length <= 11) {
+      return 'https://q1.qlogo.cn/g?b=qq&nk=' + encodeURIComponent(avatarUin) + '&s=100';
+    }
+  }
+  return '';
 }
 
 async function qqCookieObjectFromBrowser() {
-  const urls = [QQ_ORIGIN + '/', 'https://u.y.qq.com/', 'https://c.y.qq.com/', 'https://i.y.qq.com/', 'https://qq.com/'];
+  const urls = [
+    QQ_ORIGIN + '/',
+    'https://y.qq.com/n/ryqq/profile',
+    'https://u.y.qq.com/',
+    'https://c.y.qq.com/',
+    'https://i.y.qq.com/',
+    'https://qq.com/',
+    'https://graph.qq.com/',
+    'https://ptlogin2.qq.com/',
+    'https://ssl.ptlogin2.qq.com/'
+  ];
   const entries = [];
   for (const url of urls) {
     try {
@@ -797,7 +829,9 @@ async function qqCookieObjectFromBrowser() {
     if (obj[cookie.name] == null || /qqmusic|qm_|uin|skey|token|ptnick/i.test(cookie.name)) obj[cookie.name] = cookie.value || '';
   });
   if (Number(obj.login_type) === 2 && obj.wxuin && !obj.uin) obj.uin = obj.wxuin;
-  if (!obj.uin && (obj.qqmusic_uin || obj.p_uin)) obj.uin = obj.qqmusic_uin || obj.p_uin;
+  if (!obj.uin && (obj.qqmusic_uin || obj.p_uin || obj.luin || obj.pt2gguin || obj.o_cookie)) {
+    obj.uin = obj.qqmusic_uin || obj.p_uin || obj.luin || obj.pt2gguin || obj.o_cookie;
+  }
   if (obj.uin) obj.uin = normalizeQQUin(obj.uin);
   return obj;
 }
@@ -831,10 +865,44 @@ function parseJsonLoose(raw, source) {
   catch (err) { throw new Error('Invalid JSON from ' + source); }
 }
 
+async function qqFetchJsonInMusicTab(targetUrl, requestOptions) {
+  try {
+    const tabs = await chromeTabsQuery({ url: [QQ_ORIGIN + '/*'] });
+    const tab = tabs.find(item => item && item.id && !item.discarded) || tabs.find(item => item && item.id);
+    if (!tab) return null;
+    const results = await chromeExecuteScript({
+      target: { tabId: tab.id },
+      func: async function (url, options) {
+        const init = Object.assign({
+          credentials: 'include',
+          cache: 'no-store'
+        }, options || {});
+        const res = await fetch(url, init);
+        const text = await res.text();
+        return { ok: res.ok, status: res.status, text: text };
+      },
+      args: [targetUrl, requestOptions || {}]
+    });
+    const result = results && results[0] && results[0].result;
+    if (result && result.ok && result.text) return parseJsonLoose(result.text, 'QQ Music tab');
+  } catch (err) {
+    console.warn('[Mineradio Connector] y.qq.com tab fetch failed', err);
+  }
+  return null;
+}
+
 async function qqMusicRequest(payload, opts) {
   opts = opts || {};
   const cookieObj = opts.cookieObj || await qqCookieObjectFromBrowser();
   const body = JSON.stringify(payload || {});
+  if (opts.preferTab !== false) {
+    const tabData = await qqFetchJsonInMusicTab(QQ_MUSICU_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json;charset=UTF-8' },
+      body
+    });
+    if (tabData) return tabData;
+  }
   const raw = await qqFetchText(QQ_MUSICU_URL, {
     method: 'POST',
     cookieObj,
@@ -860,16 +928,17 @@ function normalizeQQProfile(body, cookieObj) {
   const data = body && (body.data || body.profile || body.creator || body.result) || {};
   const creator = data.creator || data.user || data.profile || data || {};
   const profileNick = creator.nick || creator.nickname || creator.name || creator.hostname || creator.title || '';
-  const profileAvatar = creator.headpic || creator.avatar || creator.avatarUrl || creator.logo || '';
+  const profileAvatar = creator.headpic || creator.headurl || creator.avatar || creator.avatarUrl || creator.logo || creator.image || '';
   const nick = profileNick || qqCookieNickname(cookieObj, uin) || '';
   const avatar = profileAvatar || qqCookieAvatar(cookieObj, uin);
   return {
     provider: 'qq',
-    loggedIn: !!(uin && qqCookieMusicKey(cookieObj)),
+    loggedIn: qqCookieLoginReady(cookieObj),
     userId: uin,
     nickname: nick || (uin ? ('QQ ' + uin) : 'QQ Music'),
     avatar,
     hasCookie: !!Object.keys(cookieObj).length,
+    loginCookieNames: qqCookieDiagnosticNames(cookieObj),
     playbackKeyReady: !!qqCookiePlaybackKey(cookieObj)
   };
 }
@@ -1018,6 +1087,8 @@ async function qqSongUrl(payload) {
   const uin = qqCookieUin(cookieObj) || '0';
   const musicKey = qqCookieMusicKey(cookieObj);
   const playbackKey = qqCookiePlaybackKey(cookieObj);
+  const authKey = playbackKey;
+  const loggedIn = qqCookieLoginReady(cookieObj);
   const mediaIds = [];
   const mediaMid = String(song.mediaMid || song.media_mid || '').trim();
   if (mediaMid) mediaIds.push(mediaMid);
@@ -1034,8 +1105,8 @@ async function qqSongUrl(payload) {
     platform: '20'
   };
   if (filenames.length) param.filename = filenames;
-  const comm = { uin, format: 'json', ct: musicKey ? 19 : 24, cv: 0 };
-  if (musicKey) comm.authst = musicKey;
+  const comm = { uin, format: 'json', ct: authKey ? 19 : 24, cv: 0 };
+  if (authKey) comm.authst = authKey;
   const json = await qqMusicRequest({
     comm,
     req_0: { module: 'vkey.GetVkeyServer', method: 'CgiGetVkey', param }
@@ -1057,14 +1128,16 @@ async function qqSongUrl(payload) {
     };
   }
   const code = info.result || info.code || info.errtype || 0;
-  const message = info.msg || info.tips || info.errmsg || (!musicKey ? 'QQ Music login is missing or this track needs permission' : 'QQ Music did not return a playable URL');
+  const message = info.msg || info.tips || info.errmsg ||
+    (!loggedIn ? 'QQ Music login is missing or this track needs permission'
+      : (!playbackKey ? 'QQ Music playback cookie is incomplete; play one song on y.qq.com and refresh the connector' : 'QQ Music did not return a playable URL'));
   return {
     provider: 'qq-extension',
     url: '',
     playable: false,
-    loggedIn: !!(uin && musicKey),
+    loggedIn,
     playbackKeyReady: !!(uin && playbackKey),
-    reason: !musicKey ? 'login_required' : 'url_unavailable',
+    reason: !loggedIn ? 'login_required' : (!playbackKey ? 'playback_key_missing' : 'url_unavailable'),
     message,
     qqCode: code
   };

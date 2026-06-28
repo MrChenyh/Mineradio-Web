@@ -49,7 +49,7 @@ function refreshQQStatus() {
     if (status.loggedIn && status.playbackKeyReady) {
       setStatus('qq', 'ok', 'QQ 音乐网页登录态已检测到', (status.nickname || status.userId || '已登录') + ' · 可尝试 QQ-X 搜索和播放');
     } else if (status.loggedIn) {
-      setStatus('qq', 'warn', 'QQ 音乐账号已检测到', '播放授权 Cookie 不完整，部分歌曲会自动换源');
+      setStatus('qq', 'warn', 'QQ 音乐账号已检测到', '播放授权 Cookie 不完整，请在 QQ 音乐网页播放任意歌曲后刷新状态');
     } else {
       setStatus('qq', 'warn', '未检测到 QQ 音乐网页登录态', '请先在浏览器里登录 y.qq.com');
     }
