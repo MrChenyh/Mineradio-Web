@@ -6,5 +6,6 @@ bridge/.qq-cookie
 bridge/updates/
 bridge/cache/
 release/
+.edge-test-profile/
 *.log
 *.tmp

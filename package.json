@@ -8,6 +8,7 @@
     "build:web": "node scripts/build-web.js",
     "preview:web": "node scripts/preview-web.js",
     "package:bridge:win": "node scripts/package-bridge-win.js",
+    "test:edge-extension": "powershell -ExecutionPolicy Bypass -File scripts/open-edge-extension-test.ps1",
     "check": "node --check bridge/server.js && node --check bridge/start-bridge.js && node --check web/public/mineradio-web-adapter.js && node --check scripts/build-web.js && node --check scripts/preview-web.js && node --check scripts/package-bridge-win.js"
   },
   "dependencies": {

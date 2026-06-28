@@ -2017,16 +2017,16 @@ html.control-glass-svg-ok #visual-guide-btn:hover{
         <div class="home-card-sub" id="home-weather-card-sub">选择电脑里的音乐文件</div>
         <div class="home-card-art" id="home-weather-art"></div>
       </button>
-      <button class="home-card" data-home-tone="mix" type="button" onclick="runHomeSearch('')">
+      <button class="home-card" data-home-tone="mix" type="button" onclick="runHomeSearch('陶喆')">
         <div class="home-card-label">Public</div>
-        <div class="home-card-title" id="home-daily-title">公共源搜索</div>
-        <div class="home-card-sub" id="home-daily-sub">实验接口，成功率视站点限制</div>
+        <div class="home-card-title" id="home-daily-title">陶喆试听</div>
+        <div class="home-card-sub" id="home-daily-sub">点击搜索 iTunes / Audius 试听</div>
         <div class="home-card-art" id="home-daily-art"></div>
       </button>
-      <button class="home-card" data-home-tone="playlist" type="button" onclick="runHomeSearch('周杰伦')">
+      <button class="home-card" data-home-tone="playlist" type="button" onclick="runHomeSearch('飞机场的10:30 陶喆')">
         <div class="home-card-label">Search</div>
-        <div class="home-card-title" id="home-private-title">试搜一首</div>
-        <div class="home-card-sub" id="home-private-sub">填入关键词后即可尝试</div>
+        <div class="home-card-title" id="home-private-title">飞机场的10:30</div>
+        <div class="home-card-sub" id="home-private-sub">陶喆 / 30 秒试听</div>
         <div class="home-card-art" id="home-private-art"></div>
       </button>
       <button class="home-card" data-home-tone="mix" type="button" onclick="playHomeRecent()">
@@ -2751,14 +2751,20 @@ var audio = null, audioCtx = null, source = null, analyser = null, beatAnalyser 
 var uiSfxCtx = null, lastShelfSelectSfxAt = 0;
 var LOCAL_FIRST_MODE = true;
 var PUBLIC_SOURCE_EXPERIMENTAL = true;
+var GD_PUBLIC_SOURCE_ENABLED = false;
 var GD_PUBLIC_API = 'https://music-api-hk.gdstudio.xyz/api.php';
 var AUDIUS_API = 'https://discoveryprovider.audius.co/v1/tracks/search';
 var ITUNES_SEARCH_API = 'https://itunes.apple.com/search';
+var LRCLIB_SEARCH_API = 'https://lrclib.net/api/search';
 var ITUNES_HOME_PREVIEW_QUERIES = ['飞机场的10:30 陶喆', '似曾相识 陶喆', '千言万语 陶喆', '陶喆'];
 var homePreviewSongs = [];
 var homePreviewLoading = false;
 var homePreviewLoaded = false;
 var audioDirectMode = false;
+var directPulseSeed = 0;
+var connectorState = { available: false, version: '', status: null, checkedAt: 0 };
+var connectorRequestSeq = 0;
+var connectorPendingRequests = {};
 var FFT_SIZE = 2048;
 var frequencyData = new Uint8Array(FFT_SIZE / 2);
 var timeDomainData = new Uint8Array(FFT_SIZE);
@@ -15623,12 +15629,12 @@ function renderHomeTiles() {
       localTiles.push({ kind: 'preview', index: i, song: song, title: song.name, sub: 'iTunes 试听 · ' + songDurationLabel(song), cover: song.cover });
     });
     localTiles.push({ kind: 'local', title: '导入本地音乐', sub: '选择 MP3 / FLAC / WAV 等文件' });
-    localTiles.push({ kind: 'search', title: '试试公共源', sub: 'GD / iTunes / Audius 实验搜索', query: '' });
+    localTiles.push({ kind: 'search', title: '陶喆试听搜索', sub: 'iTunes / Audius 直接预览', query: '陶喆' });
     if (summaryLocal.topArtist) localTiles.push({ kind: 'profile', title: summaryLocal.topArtist.name, sub: '常听歌手 · ' + summaryLocal.topArtist.plays + ' 次', query: summaryLocal.topArtist.name });
     localTiles.push({ kind: 'guide', title: '视觉控制台', sub: '调节粒子、歌词和舞台效果' });
     localTiles = localTiles.slice(0, 5);
     if (title) title.textContent = summaryLocal.recent ? '接着听' : '先从这里开始';
-    if (note) note.textContent = '本地播放为主，公共源仅用于测试';
+    if (note) note.textContent = '本地播放为主，试听源不需要登录';
     row.innerHTML = localTiles.map(function(item, i){
       var cover = homeTileCover(item);
       var tone = homeToneForItem(item, i);
@@ -15708,10 +15714,10 @@ function renderHomeDiscover() {
     var libSub = document.getElementById('home-library-sub');
     if (weatherCardTitle) weatherCardTitle.textContent = '本地导入';
     if (weatherCardSub) weatherCardSub.textContent = '选择电脑里的音乐文件';
-    if (dailyTitle) dailyTitle.textContent = '公共源搜索';
-    if (dailySub) dailySub.textContent = '实验接口，成功率视站点限制';
-    if (privateTitle) privateTitle.textContent = '试搜一首';
-    if (privateSub) privateSub.textContent = '填入关键词后即可尝试';
+    if (dailyTitle) dailyTitle.textContent = '陶喆试听';
+    if (dailySub) dailySub.textContent = '点击搜索 iTunes / Audius 试听';
+    if (privateTitle) privateTitle.textContent = '飞机场的10:30';
+    if (privateSub) privateSub.textContent = '陶喆 / 30 秒试听';
     if (continueTitle) continueTitle.textContent = summary.recent ? summary.recent.name : '继续听';
     if (continueSub) continueSub.textContent = summary.recent ? (summary.recent.artist || summary.recent.source || '最近播放') : '最近播放会出现在这里';
     if (profileTitle) profileTitle.textContent = summary.topArtist ? summary.topArtist.name : (summary.topSong ? summary.topSong.name : '听歌画像');
@@ -17062,6 +17068,27 @@ function parseCustomLyricText(text) {
     return { t: i * gap, duration: gap, text: line, source: 'custom-text', charCount: Math.max(1, line.length) };
   }));
 }
+function parseLooseLyricText(text, sourceName) {
+  var raw = String(text || '').trim();
+  if (!raw) return [];
+  var lrcLines = parseLyricText(raw);
+  if (lrcLines.length && !lrcLines.every(function(line){ return isNoLyricText(line.text); })) {
+    return lrcLines.map(function(line){
+      var copy = cloneLyricLine(line);
+      copy.source = sourceName || 'public-lrc';
+      return copy;
+    });
+  }
+  var rows = raw.split(/\r?\n/).map(function(line){ return line.trim(); }).filter(function(line){
+    return line && !/^\[(?:ti|ar|al|by|offset):/i.test(line) && !isNoLyricText(line);
+  });
+  if (!rows.length) return [];
+  var duration = audio && isFinite(audio.duration) && audio.duration > 8 ? audio.duration : 0;
+  var gap = duration ? Math.max(0.9, Math.min(5.2, duration / Math.max(1, rows.length))) : 4.8;
+  return finalizeLyricLineDurations(rows.map(function(line, i){
+    return { t: i * gap, duration: gap, text: line, source: sourceName || 'public-text', charCount: Math.max(1, line.length) };
+  }));
+}
 function applyCustomLyricState(song, silent) {
   song = song || currentLyricSong();
   var entry = getCustomLyricEntry(song);
@@ -17565,6 +17592,71 @@ function runSearchHistory(q) {
   doSearch(q);
   $input.focus();
 }
+function setupMineradioConnector() {
+  var CHANNEL = 'mineradio-connector';
+  window.addEventListener('message', function(event){
+    if (event.source !== window) return;
+    var data = event.data || {};
+    if (!data || data.channel !== CHANNEL || data.from !== 'extension') return;
+    if (data.type === 'ready') {
+      connectorState.available = true;
+      connectorState.version = data.version || '';
+      connectorState.checkedAt = Date.now();
+      updateSearchModeTabs();
+      tryRefreshConnectorStatus();
+      return;
+    }
+    var pending = data.requestId && connectorPendingRequests[data.requestId];
+    if (!pending) return;
+    delete connectorPendingRequests[data.requestId];
+    clearTimeout(pending.timer);
+    if (data.ok) pending.resolve(data);
+    else pending.reject(new Error(data.error || 'Mineradio Connector 请求失败'));
+  });
+  setTimeout(function(){
+    if (!connectorState.available) updateSearchModeTabs();
+  }, 900);
+  setTimeout(function(){
+    connectorRequest('ping', {}, 1600).then(function(res){
+      connectorState.available = true;
+      connectorState.version = res.version || connectorState.version || '';
+      connectorState.checkedAt = Date.now();
+      updateSearchModeTabs();
+      tryRefreshConnectorStatus();
+    }).catch(function(){});
+  }, 350);
+}
+function connectorRequest(action, payload, timeoutMs) {
+  if (!connectorState.available && action !== 'ping') return Promise.reject(new Error('Mineradio Connector 未安装或未连接'));
+  var requestId = 'mr-' + Date.now() + '-' + (++connectorRequestSeq);
+  return new Promise(function(resolve, reject){
+    var timer = setTimeout(function(){
+      if (!connectorPendingRequests[requestId]) return;
+      delete connectorPendingRequests[requestId];
+      reject(new Error('Mineradio Connector 请求超时'));
+    }, timeoutMs || 9000);
+    connectorPendingRequests[requestId] = { resolve: resolve, reject: reject, timer: timer };
+    window.postMessage({
+      channel: 'mineradio-connector',
+      from: 'page',
+      requestId: requestId,
+      action: action,
+      payload: payload || {}
+    }, '*');
+  });
+}
+async function tryRefreshConnectorStatus() {
+  if (!connectorState.available) return null;
+  try {
+    var res = await connectorRequest('netease.status', {}, 4500);
+    connectorState.status = res.status || null;
+    connectorState.checkedAt = Date.now();
+    return connectorState.status;
+  } catch (err) {
+    console.warn('[ConnectorStatus]', err);
+    return null;
+  }
+}
 function updateSearchModeTabs() {
   var songBtn = document.getElementById('search-mode-song');
   var neteaseBtn = document.getElementById('search-mode-netease');
@@ -17572,7 +17664,7 @@ function updateSearchModeTabs() {
   var podcastBtn = document.getElementById('search-mode-podcast');
   if (LOCAL_FIRST_MODE) searchMode = 'song';
   if (songBtn) {
-    songBtn.textContent = LOCAL_FIRST_MODE ? '公共源' : 'All';
+    songBtn.textContent = LOCAL_FIRST_MODE ? (connectorState.available ? '试听源 + NE' : '试听源') : 'All';
     songBtn.classList.toggle('active', searchMode === 'song');
     songBtn.setAttribute('aria-selected', searchMode === 'song' ? 'true' : 'false');
   }
@@ -17590,7 +17682,7 @@ function updateSearchModeTabs() {
   }
   if ($input) {
     $input.placeholder = LOCAL_FIRST_MODE
-      ? '搜索公共源，或导入本地歌曲...'
+      ? (connectorState.available ? '搜索试听源 / 网易云扩展，或导入本地歌曲...' : '搜索试听源，或导入本地歌曲...')
       : (searchMode === 'podcast'
       ? '搜索播客、电台...'
       : (searchMode === 'qq' ? '搜索 QQ 音乐...' : (searchMode === 'netease' ? '搜索网易云音乐...' : '搜索歌曲、歌手...')));
@@ -17803,6 +17895,7 @@ $results.addEventListener('click', function(e){
     runSearchHistory(item.getAttribute('data-history-query') || '');
   }
 });
+setupMineradioConnector();
 document.addEventListener('click', function(e){
   var searchArea = document.getElementById('search-area');
   if (!searchArea.contains(e.target)) {
@@ -17813,6 +17906,7 @@ document.addEventListener('click', function(e){
 updateSearchModeTabs();
 
 function songProviderKey(song) {
+  if (song && (song.provider === 'netease-extension' || song.source === 'netease-extension' || song.type === 'netease-extension')) return 'netease-extension';
   if (song && (song.provider === 'gd-netease' || song.source === 'gd-netease' || song.publicProvider === 'gd-netease')) return 'gd-netease';
   if (song && (song.provider === 'gd-kuwo' || song.source === 'gd-kuwo' || song.publicProvider === 'gd-kuwo')) return 'gd-kuwo';
   if (song && (song.provider === 'itunes' || song.source === 'itunes' || song.publicProvider === 'itunes')) return 'itunes';
@@ -17825,15 +17919,19 @@ function songProviderKey(song) {
 function isPublicSourceProviderKey(key) {
   return key === 'public' || key === 'gd-netease' || key === 'gd-kuwo' || key === 'itunes' || key === 'audius';
 }
+function isConnectorProviderKey(key) {
+  return key === 'netease-extension';
+}
 function songSourceTagHtml(song) {
   var key = songProviderKey(song);
   var label = key === 'qq' ? 'QQ'
+    : (key === 'netease-extension' ? 'NE-X'
     : (key === 'gd-netease' ? 'GD'
     : (key === 'gd-kuwo' ? 'GD'
     : (key === 'itunes' ? 'ITUNES'
     : (key === 'audius' ? 'AUDIUS'
     : (key === 'public' ? 'WEB'
-    : (key === 'local' ? 'LOCAL' : 'NE'))))));
+    : (key === 'local' ? 'LOCAL' : 'NE')))))));
   return '<span class="tag-source ' + key + '">' + label + '</span>';
 }
 function searchResultMetaText(song) {
@@ -17841,6 +17939,7 @@ function searchResultMetaText(song) {
   if (song.artist) bits.push(song.artist);
   if (song.album) bits.push(song.album);
   if (isPublicSourceProviderKey(songProviderKey(song))) bits.push((song.publicSourceLabel || publicSourceLabel(song)) + ' · 实验');
+  if (isConnectorProviderKey(songProviderKey(song))) bits.push('网易云扩展 · 浏览器登录态');
   return bits.join('  ·  ') || songSourceLabel(song);
 }
 function searchResultMetaHtml(song, index) {
@@ -17849,6 +17948,7 @@ function searchResultMetaHtml(song, index) {
   var bits = [];
   if (song.album) bits.push(song.album);
   if (isPublicSourceProviderKey(songProviderKey(song))) bits.push((song.publicSourceLabel || publicSourceLabel(song)) + ' · 实验');
+  if (isConnectorProviderKey(songProviderKey(song))) bits.push('网易云扩展 · 浏览器登录态');
   var tail = bits.length ? (' · ' + escHtml(bits.join('  ·  '))) : '';
   if (!artist) return escHtml(searchResultMetaText(song));
   return '<button class="search-artist-link" type="button" onclick="event.stopPropagation();openSearchResultArtist(' + index + ')">' + escHtml(artist) + '</button>' + tail;
@@ -17943,6 +18043,7 @@ function scoreSongSearchResult(song, q, sourceIndex) {
   if (album && nq && (album.indexOf(nq) >= 0 || nq.indexOf(album) >= 0)) score += 8;
   var providerKey = songProviderKey(song);
   if (providerKey === 'qq') score += searchIntentPrefersQQ(q) ? 48 : 4;
+  if (providerKey === 'netease-extension') score += 34;
   if (providerKey === 'gd-netease' || providerKey === 'gd-kuwo') score += /[\u4e00-\u9fff]/.test(String(q || '')) ? 16 : 8;
   if (providerKey === 'itunes') score += 4;
   if (providerKey === 'audius') score += /[\u4e00-\u9fff]/.test(String(q || '')) ? -8 : 8;
@@ -17977,6 +18078,15 @@ function publicSourceErrorText(err) {
   if (/403/.test(msg)) return '公共源拒绝了当前页面请求';
   if (/failed to fetch|cors|network/i.test(msg)) return '公共源被浏览器跨域限制或网络拦截';
   return msg || '公共源暂不可用';
+}
+function simpleHashString(value) {
+  value = String(value || '');
+  var hash = 2166136261;
+  for (var i = 0; i < value.length; i++) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
 }
 async function fetchPublicJson(url, opts) {
   opts = opts || {};
@@ -18171,12 +18281,11 @@ async function fetchAudiusPublicSearchResults(q) {
 }
 async function fetchPublicSourceSearchResults(q) {
   if (!PUBLIC_SOURCE_EXPERIMENTAL) return [];
-  var tasks = [
-    fetchGdPublicSearchResults(q, 'netease'),
-    fetchGdPublicSearchResults(q, 'kuwo'),
-    fetchItunesPublicSearchResults(q),
-    fetchAudiusPublicSearchResults(q)
-  ];
+  var tasks = [fetchItunesPublicSearchResults(q), fetchAudiusPublicSearchResults(q)];
+  if (GD_PUBLIC_SOURCE_ENABLED) {
+    tasks.push(fetchGdPublicSearchResults(q, 'netease'));
+    tasks.push(fetchGdPublicSearchResults(q, 'kuwo'));
+  }
   var settled = await Promise.allSettled(tasks);
   var songs = [];
   var errors = [];
@@ -18186,6 +18295,52 @@ async function fetchPublicSourceSearchResults(q) {
   });
   if (!songs.length && errors.length) throw new Error(errors.join(' | '));
   return mergeSongSearchResults(songs, [], 24, q);
+}
+function normalizeConnectorSong(song) {
+  song = song || {};
+  return Object.assign({}, song, {
+    provider: 'netease-extension',
+    source: 'netease-extension',
+    type: 'netease-extension',
+    id: String(song.id || ''),
+    name: song.name || '',
+    artist: song.artist || '',
+    album: song.album || '',
+    cover: song.cover || '',
+    duration: Number(song.duration || 0) || 0,
+    playable: song.playable !== false
+  });
+}
+async function fetchConnectorNeteaseSearchResults(q) {
+  if (!connectorState.available) return [];
+  try {
+    var res = await connectorRequest('netease.search', { q: q, limit: 12 }, 9000);
+    return (Array.isArray(res.songs) ? res.songs : []).map(normalizeConnectorSong).filter(function(song){ return song.id && song.name; });
+  } catch (err) {
+    console.warn('[ConnectorSearch]', err);
+    return [];
+  }
+}
+async function fetchConnectorPlayback(song) {
+  if (!connectorState.available) {
+    return { provider: 'netease-extension', url: '', playable: false, reason: 'connector_missing', message: '未检测到 Mineradio Connector 扩展' };
+  }
+  try {
+    var res = await connectorRequest('netease.songUrl', { id: song && song.id, br: 128000 }, 9000);
+    if (!res.url) {
+      return { provider: 'netease-extension', url: '', playable: false, reason: res.reason || 'url_unavailable', message: res.message || '网易云没有返回可播放地址' };
+    }
+    return {
+      provider: 'netease-extension',
+      url: res.url,
+      level: res.level || 'standard',
+      quality: res.quality || '网易云扩展',
+      trial: !!res.trial,
+      playable: true
+    };
+  } catch (err) {
+    return { provider: 'netease-extension', url: '', playable: false, reason: 'connector_failed', message: err && err.message || '扩展请求失败' };
+  }
 }
 async function fetchPublicSourcePlayback(song) {
   if (song && (song.publicAudioUrl || song.previewUrl || song.streamUrl)) {
@@ -18224,7 +18379,76 @@ async function fetchPublicSourcePlayback(song) {
     return { provider: provider || 'public', url: '', playable: false, reason: 'public_source_failed', message: publicSourceErrorText(err) };
   }
 }
+function cleanLyricLookupTitle(title) {
+  return String(title || '')
+    .replace(/\s*\([^)]*(?:伴奏|Live|现场|伴唱|Instrumental|Remix|版|MV)[^)]*\)\s*/ig, ' ')
+    .replace(/\s*\[[^\]]*(?:伴奏|Live|现场|伴唱|Instrumental|Remix|版|MV)[^\]]*\]\s*/ig, ' ')
+    .replace(/\s+-\s*(?:Single|EP|Remastered).*$/ig, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+function cleanLyricLookupArtist(artist) {
+  return String(artist || '').split(/,|、|&| feat\. | ft\. /i)[0].trim();
+}
+function scoreLrclibLyricResult(item, song) {
+  if (!item || (!item.syncedLyrics && !item.plainLyrics)) return -999;
+  var title = simpleSearchNorm(cleanLyricLookupTitle(song && song.name));
+  var artist = simpleSearchNorm(cleanLyricLookupArtist(song && song.artist));
+  var itemTitle = simpleSearchNorm(item.trackName || item.name || '');
+  var itemArtist = simpleSearchNorm(item.artistName || '');
+  var score = item.syncedLyrics ? 40 : 12;
+  if (title && itemTitle === title) score += 60;
+  else if (title && (itemTitle.indexOf(title) >= 0 || title.indexOf(itemTitle) >= 0)) score += 28;
+  if (artist && itemArtist === artist) score += 42;
+  else if (artist && itemArtist.indexOf(artist) >= 0) score += 18;
+  var songDuration = Number(song && song.duration) || 0;
+  var itemDuration = Number(item.duration) || 0;
+  if (songDuration > 45 && itemDuration > 45) score -= Math.min(30, Math.abs(songDuration - itemDuration) * 0.35);
+  if (item.instrumental) score -= 80;
+  return score;
+}
+async function fetchLrclibLyrics(song) {
+  if (!song || !song.name) return '';
+  var title = cleanLyricLookupTitle(song.name);
+  var artist = cleanLyricLookupArtist(song.artist);
+  if (!title) return '';
+  var params = new URLSearchParams({ track_name: title });
+  if (artist) params.set('artist_name', artist);
+  var data = await fetchPublicJson(LRCLIB_SEARCH_API + '?' + params.toString());
+  var list = Array.isArray(data) ? data : [];
+  if (!list.length && artist) {
+    var fallbackParams = new URLSearchParams({ q: title + ' ' + artist });
+    data = await fetchPublicJson(LRCLIB_SEARCH_API + '?' + fallbackParams.toString());
+    list = Array.isArray(data) ? data : [];
+  }
+  list.sort(function(a, b){ return scoreLrclibLyricResult(b, song) - scoreLrclibLyricResult(a, song); });
+  var best = list[0];
+  if (!best || scoreLrclibLyricResult(best, song) < 20) return '';
+  return best.syncedLyrics || best.plainLyrics || '';
+}
+async function fetchConnectorLyricText(song) {
+  if (!connectorState.available || !song || !song.id) return '';
+  try {
+    var res = await connectorRequest('netease.lyric', { id: song.id }, 9000);
+    return res.lyric || '';
+  } catch (err) {
+    console.warn('[ConnectorLyric]', song && song.name, err);
+    return '';
+  }
+}
 async function fetchMusicSearchResults(q, mode) {
+  if (LOCAL_FIRST_MODE || mode === 'song') {
+    var batches = await Promise.allSettled([
+      fetchConnectorNeteaseSearchResults(q),
+      fetchPublicSourceSearchResults(q)
+    ]);
+    var songs = [];
+    batches.forEach(function(item){
+      if (item.status === 'fulfilled') songs = songs.concat(item.value || []);
+      else console.warn('[MusicSearch]', item.reason);
+    });
+    return mergeSongSearchResults(songs, [], connectorState.available ? 30 : 24, q);
+  }
   return fetchPublicSourceSearchResults(q);
 }
 function renderSongSearchResults(songs) {
@@ -18270,6 +18494,11 @@ async function doSearch(q, opts) {
   var requestSeq = ++searchRequestSeq;
   try {
     var mode = searchMode;
+    if (isMusicSearchMode(mode)) {
+      playlist = [];
+      $results.innerHTML = '<div class="search-empty">' + (connectorState.available ? '正在搜索网易云扩展 / iTunes / Audius...' : '正在搜索 iTunes / Audius 试听...') + '</div>';
+      $results.classList.add('show');
+    }
     var songs = await fetchMusicSearchResults(q, mode);
     if (requestSeq !== searchRequestSeq || $input.value.trim() !== q) return;
     if (!songs.length) {
@@ -18323,6 +18552,37 @@ function initAudio() {
 function resumeAudioAnalysis() {
   if (audioCtx && audioCtx.state === 'suspended') return audioCtx.resume().catch(function(e){ console.warn('audio context resume failed:', e); });
   return Promise.resolve();
+}
+function resetDirectAudioPulse(song) {
+  directPulseSeed = simpleHashString((song && song.name || '') + '|' + (song && song.artist || '')) % 1000;
+  smoothBass = 0.16;
+  smoothMid = 0.10;
+  smoothTreb = 0.08;
+  smoothEnergy = 0.14;
+  beatPulse = 0.08;
+}
+function updateDirectAudioPulse(dt) {
+  if (!audioDirectMode || !playing || !audio || audio.paused) return false;
+  var t = isFinite(audio.currentTime) ? audio.currentTime : performance.now() / 1000;
+  var tempo = 1.55 + (directPulseSeed % 9) * 0.08;
+  var phase = (t * tempo + directPulseSeed * 0.017) * Math.PI * 2;
+  var beatWave = Math.max(0, Math.sin(phase));
+  beatWave = beatWave * beatWave * beatWave * beatWave;
+  var offBeat = Math.max(0, Math.sin(phase * 0.5 + 0.9));
+  offBeat = offBeat * offBeat;
+  var shimmer = 0.5 + 0.5 * Math.sin(t * (2.2 + (directPulseSeed % 5) * 0.09) + directPulseSeed);
+  var bar = Math.floor(t * tempo);
+  var accent = bar % 4 === 0 ? 1 : 0.62;
+  beatPulse = Math.max(beatPulse * Math.pow(0.50, dt), beatWave * 0.34 * accent + offBeat * 0.035);
+  if (beatWave > 0.82 && beatPulse > 0.18) beatOnsetFlag = true;
+  smoothBass += ((0.12 + beatWave * 0.48 * accent + offBeat * 0.06) - smoothBass) * 0.12;
+  smoothMid += ((0.12 + shimmer * 0.18 + offBeat * 0.10) - smoothMid) * 0.08;
+  smoothTreb += ((0.08 + (1 - shimmer) * 0.16) - smoothTreb) * 0.07;
+  smoothEnergy += ((0.16 + beatWave * 0.32 + shimmer * 0.10) - smoothEnergy) * 0.09;
+  lyricSunTarget = Math.max(lyricSunTarget * 0.94, Math.max(0, smoothMid - 0.14) * 0.45);
+  lyricSunHold += (lyricSunTarget - lyricSunHold) * 0.035;
+  lyricSunEnergy += (lyricSunHold - lyricSunEnergy) * 0.035;
+  return true;
 }
 
 function ensureUiSfxContext() {
@@ -19087,25 +19347,29 @@ async function playQueueAt(idx, opts) {
     var providerKey = songProviderKey(song);
     var isQQPlayback = providerKey === 'qq';
     var isPublicPlayback = isPublicSourceProviderKey(providerKey);
+    var isConnectorPlayback = isConnectorProviderKey(providerKey);
     var requestedQuality = normalizePlaybackQuality(opts.qualityOverride || playbackQuality);
     if (!isQQPlayback && requestedQuality === 'jymaster' && !hasProviderSvip('netease', loginStatus)) requestedQuality = 'hires';
     if (isQQPlayback && qqPlaybackQualityCeiling && (requestedQuality === 'jymaster' || requestedQuality === 'hires' || requestedQuality === 'lossless')) {
       requestedQuality = qqPlaybackQualityCeiling;
     }
     var qualityParam = '&quality=' + encodeURIComponent(requestedQuality);
-    var data = isPublicPlayback
+    var data = isConnectorPlayback
+      ? await fetchConnectorPlayback(song)
+      : (isPublicPlayback
       ? await fetchPublicSourcePlayback(song)
       : (isQQPlayback
       ? await apiJson('/api/qq/song/url?mid=' + encodeURIComponent(song.mid || song.songmid || song.id || '') + '&mediaMid=' + encodeURIComponent(song.mediaMid || song.media_mid || '') + qualityParam)
-      : await apiJson('/api/song/url?id=' + song.id + qualityParam));
+      : await apiJson('/api/song/url?id=' + song.id + qualityParam)));
     if (token !== trackSwitchToken) return;
     if (!data.url) {
       if (isQQPlayback && await retryQQPlaybackWithCompatibleQuality(song, idx, token, opts, data, requestedQuality)) return;
-      if (!isPublicPlayback && await tryAutoPlaybackFallback(song, data, idx, token, opts)) return;
+      if (!isPublicPlayback && !isConnectorPlayback && await tryAutoPlaybackFallback(song, data, idx, token, opts)) return;
       handlePlaybackUnavailable(song, data);
       return;
     }
-    audioDirectMode = !!isPublicPlayback;
+    audioDirectMode = !!(isPublicPlayback || isConnectorPlayback);
+    if (audioDirectMode) resetDirectAudioPulse(song);
     var resolvedQualityText = playbackResolvedQualityText(data);
     if (!isPublicPlayback && !isQQPlayback && playbackQualityWasDowngraded(requestedQuality, data.level)) {
       showSourceFallbackNotice('网易云音质自动降级', '请求 ' + playbackQualityLabel(requestedQuality) + '，实际播放 ' + resolvedQualityText + '。');
@@ -19124,16 +19388,16 @@ async function playQueueAt(idx, opts) {
       document.getElementById('trial-banner').classList.add('show');
     }
     markPlayPhase('audio-element');
-    if (!audio || (isPublicPlayback && audioReady)) { audio = new Audio(); }
+    if (!audio || ((isPublicPlayback || isConnectorPlayback) && audioReady)) { audio = new Audio(); }
     else {
       audioFadeSerial++;
       clearAudioFadeTimers();
       audio.pause();
     }
-    audio.crossOrigin = isPublicPlayback ? '' : 'anonymous';
+    audio.crossOrigin = (isPublicPlayback || isConnectorPlayback) ? '' : 'anonymous';
     bindPlaybackProgressEvents(audio);
     applyVolumeToAudio();
-    var proxyAudioUrl = isPublicPlayback ? data.url : bridgeProxyUrl('/api/audio?url=' + encodeURIComponent(data.url));
+    var proxyAudioUrl = (isPublicPlayback || isConnectorPlayback) ? data.url : bridgeProxyUrl('/api/audio?url=' + encodeURIComponent(data.url));
     audio.src = proxyAudioUrl;
     updatePlaybackProgressUi();
     audio.onended = function(){
@@ -19196,7 +19460,7 @@ async function playQueueAt(idx, opts) {
         scheduleQueueBeatPrefetch(idx, 2600);
       } else {
         // 后台延迟分析, 避免新歌刚开始播放时抢占解码和渲染资源
-        if (isPublicPlayback) hideBeatChip();
+        if (isPublicPlayback || isConnectorPlayback) hideBeatChip();
         else scheduleBeatAnalysis(bmKey || song.id, proxyAudioUrl, bmTok, song);
       }
     }
@@ -19646,12 +19910,30 @@ async function fetchLyric(songOrId, token) {
     var song = (songOrId && typeof songOrId === 'object') ? songOrId : null;
     var provider = songProviderKey(song);
     var endpoint;
+    if (isConnectorProviderKey(provider)) {
+      var connectorLyric = await fetchConnectorLyricText(song);
+      if (!connectorLyric) connectorLyric = await fetchLrclibLyrics(song);
+      if (token !== trackSwitchToken) return;
+      var connectorLines = parseLooseLyricText(connectorLyric || '', connectorLyric ? 'netease-extension' : 'lrclib');
+      var connectorFinalLines = withLyricFallback(connectorLines);
+      setOriginalLyricsState(connectorFinalLines, false, connectorLines.length ? (connectorLines[0].source || 'connector-lyric') : 'fallback');
+      applyPreferredLyricsForCurrent(true);
+      return;
+    }
     if (isPublicSourceProviderKey(provider)) {
       var publicLyric = song && (song.publicLyric || song.lyric || song.lrc || '');
+      if (!publicLyric) {
+        try {
+          publicLyric = await fetchLrclibLyrics(song);
+          if (song && publicLyric) song.publicLyric = publicLyric;
+        } catch (lyricErr) {
+          console.warn('[LRCLIB]', song && song.name, lyricErr);
+        }
+      }
       if (token !== trackSwitchToken) return;
-      var publicLines = parseLyricText(publicLyric || '');
+      var publicLines = parseLooseLyricText(publicLyric || '', 'lrclib');
       var publicFinalLines = withLyricFallback(publicLines);
-      setOriginalLyricsState(publicFinalLines, false, publicLines.length ? 'lrc-line' : 'fallback');
+      setOriginalLyricsState(publicFinalLines, false, publicLines.length ? (publicLines[0].source || 'public-lyric') : 'fallback');
       applyPreferredLyricsForCurrent(true);
       return;
     }
@@ -27519,7 +27801,8 @@ function animate() {
   // 真正的 mid 乐器/和声: 3000-6000Hz → bin 140-280
   // treble: 6000Hz+ → bin 280+
   beatOnsetFlag = false;
-  if (analyser && playing && audio && !audio.paused) {
+  var directPulseActive = updateDirectAudioPulse(dt);
+  if (!directPulseActive && analyser && playing && audio && !audio.paused) {
     if (audioCtx && audioCtx.state === 'suspended') resumeAudioAnalysis();
     analyser.getByteFrequencyData(frequencyData);
     analyser.getByteTimeDomainData(timeDomainData);
@@ -27646,7 +27929,7 @@ function animate() {
     lyricSunHold += (sunGate - lyricSunHold) * (sunGate > lyricSunHold ? 0.035 : 0.014);
     lyricSunTarget = lyricSunHold > 0.16 ? clamp01((lyricSunHold - 0.16) / 0.84) : 0;
     lyricSunEnergy += (lyricSunTarget - lyricSunEnergy) * (lyricSunTarget > lyricSunEnergy ? 0.075 : 0.030);
-  } else {
+  } else if (!directPulseActive) {
     smoothBass *= 0.91; smoothMid *= 0.91; smoothTreb *= 0.91; smoothEnergy *= 0.91; beatPulse *= 0.82;
     liveCamAvg *= 0.94;
     liveCamPeak = Math.max(0.28, liveCamPeak * 0.98);

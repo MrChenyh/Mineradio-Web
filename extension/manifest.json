@@ -1,0 +1,39 @@
+{
+  "manifest_version": 3,
+  "name": "Mineradio Connector",
+  "version": "0.1.0",
+  "description": "Connects Mineradio Web to browser music sessions for local testing.",
+  "permissions": [
+    "cookies",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://music.163.com/*",
+    "http://music.163.com/*",
+    "https://*.music.126.net/*",
+    "http://*.music.126.net/*",
+    "https://mrchenyh.github.io/*",
+    "http://127.0.0.1/*",
+    "http://localhost/*"
+  ],
+  "background": {
+    "service_worker": "service-worker.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://mrchenyh.github.io/Mineradio-Web/*",
+        "http://127.0.0.1/*",
+        "http://localhost/*"
+      ],
+      "js": [
+        "content-script.js"
+      ],
+      "run_at": "document_start"
+    }
+  ],
+  "action": {
+    "default_title": "Mineradio Connector",
+    "default_popup": "popup.html"
+  }
+}

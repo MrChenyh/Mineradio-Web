@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Mineradio Connector</title>
+  <style>
+    :root{color-scheme:dark}
+    body{width:300px;margin:0;padding:18px;font:13px/1.5 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;color:#edf2f7;background:#0b0d11}
+    h1{margin:0 0 8px;font-size:17px;letter-spacing:.2px}
+    p{margin:0 0 12px;color:rgba(237,242,247,.68)}
+    .status{display:flex;align-items:center;gap:9px;margin:14px 0;padding:11px;border:1px solid rgba(255,255,255,.12);border-radius:8px;background:rgba(255,255,255,.045)}
+    .dot{width:9px;height:9px;border-radius:50%;background:#f6c36a;box-shadow:0 0 18px rgba(246,195,106,.45)}
+    .status.ok .dot{background:#55d88a;box-shadow:0 0 18px rgba(85,216,138,.45)}
+    .label{font-weight:750}
+    .meta{font-size:11px;color:rgba(237,242,247,.52)}
+    button,a{display:inline-flex;align-items:center;justify-content:center;height:34px;padding:0 12px;border-radius:7px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.065);color:#fff;text-decoration:none;font-weight:700;cursor:pointer}
+    .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+  </style>
+</head>
+<body>
+  <h1>Mineradio Connector</h1>
+  <p>连接浏览器里的网易云网页登录态，供 Mineradio Web 测试搜索、歌词和播放地址。</p>
+  <div id="status" class="status">
+    <span class="dot"></span>
+    <div>
+      <div id="status-label" class="label">正在检测...</div>
+      <div id="status-meta" class="meta">请稍候</div>
+    </div>
+  </div>
+  <div class="actions">
+    <a href="https://music.163.com/" target="_blank" rel="noreferrer">打开网易云</a>
+    <button id="refresh" type="button">刷新状态</button>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
