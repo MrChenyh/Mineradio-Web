@@ -2,7 +2,7 @@
 
 Mineradio Web is a GitHub Pages friendly visual music player. The current web build is local-first: users can open the page, import local music files, and use the visual player without installing a Bridge or logging in to music platforms.
 
-An experimental public-source search is available in the UI. It tries public web endpoints directly from the browser, so availability depends on the third-party site's CORS, rate limits, and keyword rules.
+An experimental public-source search is available in the UI. It tries public web endpoints directly from the browser, so availability depends on the third-party site's CORS, rate limits, and keyword rules. The home page also shows a few iTunes 30-second previews by default, so the first screen is usable before users import local files.
 
 ## Architecture
 
@@ -42,6 +42,14 @@ Users should:
 1. Open the GitHub Pages player.
 2. Import local music files.
 3. Optionally try the public-source search box. This is experimental and may fail when the source site blocks requests or rate-limits traffic.
+
+## Public Source Notes
+
+- iTunes Search API: used for default 30-second previews and fallback preview results.
+- Audius API: used for open music search where available.
+- GD Music HK API: tested as browser-callable when the node is healthy, but it can return gateway errors; it remains experimental and is not required for the home previews.
+- Buguyy: search JSON exists, but it does not return CORS headers and its download endpoint rejects unsupported User-Agent formats, so a pure GitHub Pages page cannot call it directly.
+- tools.liumingye.cn: currently acts as a tools/navigation page, not a direct music API source for this app.
 
 ## Upstream And License
 

@@ -209,6 +209,9 @@ body.empty-home-active.diy-mode #search-area:not(.has-results) #search-mode-tabs
 .tag-source.netease{color:#ffd8dd;border-color:rgba(217,91,103,.30);background:rgba(217,91,103,.075)}
 .tag-source.qq{color:#f0ffc8;border-color:rgba(191,214,107,.30);background:rgba(191,214,107,.075)}
 .tag-source.public{color:#fff1bd;border-color:rgba(244,210,138,.32);background:rgba(244,210,138,.095)}
+.tag-source.gd-netease,.tag-source.gd-kuwo{color:#fff1bd;border-color:rgba(244,210,138,.32);background:rgba(244,210,138,.095)}
+.tag-source.itunes{color:#d8eeff;border-color:rgba(105,176,255,.32);background:rgba(105,176,255,.095)}
+.tag-source.audius{color:#ead9ff;border-color:rgba(172,132,255,.32);background:rgba(172,132,255,.095)}
 .tag-source.local{color:#d5f5ff;border-color:rgba(157,184,207,.32);background:rgba(157,184,207,.095)}
 #splash-bridge,
 #bridge-status-banner,
@@ -228,6 +231,9 @@ body.empty-home-active.diy-mode #search-area:not(.has-results) #search-mode-tabs
 .search-result .song-action-btn{display:none!important}
 .search-result.qq-source:hover{background:rgba(191,214,107,.052)}
 .search-result.netease-source:hover{background:rgba(217,91,103,.045)}
+.search-result.gd-netease-source:hover,.search-result.gd-kuwo-source:hover{background:rgba(244,210,138,.05)}
+.search-result.itunes-source:hover{background:rgba(105,176,255,.05)}
+.search-result.audius-source:hover{background:rgba(172,132,255,.05)}
 .podcast-result-head{display:flex;align-items:center;gap:10px;padding:11px 13px 9px;border-bottom:1px solid rgba(255,255,255,.04);background:rgba(255,255,255,.025)}
 .podcast-result-head img{width:40px;height:40px;border-radius:7px;object-fit:cover;background:rgba(255,255,255,.05);flex-shrink:0}
 .podcast-back-btn{width:28px;height:28px;border-radius:50%;border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.045);color:rgba(255,255,255,.66);cursor:pointer;font-family:inherit;font-size:18px;line-height:1;display:flex;align-items:center;justify-content:center;transition:all .2s}
@@ -280,6 +286,19 @@ body.home-wallpaper-preview #canvas-container{filter:none}
 .home-title{grid-column:1;font-size:clamp(34px,4.6vw,58px);line-height:.98;font-weight:760;letter-spacing:0;color:rgba(255,255,255,.98);max-width:380px;text-shadow:0 10px 36px rgba(0,0,0,.26)}
 .home-title.home-construction-title{max-width:620px;font-size:clamp(32px,4.5vw,64px);line-height:1.08}
 .home-sub{grid-column:1;margin-top:14px;font-size:13px;line-height:1.62;color:rgba(255,255,255,.62);max-width:348px}
+.home-preview-panel{width:min(100%,460px);display:flex;flex-direction:column;gap:10px;margin-top:4px}
+.home-preview-head{display:flex;align-items:center;justify-content:space-between;gap:12px;color:rgba(255,255,255,.62);font-size:11px;font-weight:820;letter-spacing:.16em;text-transform:uppercase}
+.home-preview-head span:last-child{color:rgba(244,210,138,.78);letter-spacing:.08em;text-transform:none;font-size:10.5px}
+.home-preview-list{display:grid;grid-template-columns:1fr;gap:8px;width:100%}
+.home-preview-track{min-height:54px;width:100%;display:grid;grid-template-columns:42px minmax(0,1fr) auto;align-items:center;gap:11px;padding:8px 10px;border-radius:14px;border:1px solid rgba(255,255,255,.09);background:rgba(255,255,255,.045);color:rgba(255,255,255,.88);font-family:inherit;text-align:left;cursor:pointer;transition:transform .18s ease,border-color .18s ease,background .18s ease}
+.home-preview-track:hover:not(:disabled){transform:translateY(-1px);border-color:rgba(244,210,138,.32);background:rgba(244,210,138,.075)}
+.home-preview-track:disabled{cursor:default;opacity:.72}
+.home-preview-track-art{width:42px;height:42px;border-radius:10px;position:relative;overflow:hidden;background:linear-gradient(135deg,rgba(244,210,138,.28),rgba(105,176,255,.20),rgba(172,132,255,.20));box-shadow:inset 0 1px 0 rgba(255,255,255,.16)}
+.home-preview-track-art.has-cover{background-size:cover;background-position:center}
+.home-preview-track-art::before{content:'';position:absolute;inset:9px;border-radius:50%;border:8px solid rgba(4,6,10,.42);box-shadow:0 0 18px rgba(244,210,138,.24)}
+.home-preview-track-title{font-size:13px;font-weight:820;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.home-preview-track-sub{margin-top:2px;font-size:10.5px;color:rgba(255,255,255,.46);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.home-preview-track-time{font-size:10px;color:rgba(255,255,255,.42);font-variant-numeric:tabular-nums}
 .home-weather-meta{grid-column:1;display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
 .home-weather-pill{height:28px;padding:0 10px;border-radius:999px;border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.050);display:inline-flex;align-items:center;color:rgba(255,255,255,.70);font-size:11px;font-weight:680}
 .home-quick-row{grid-column:1;position:relative;z-index:3;display:flex;flex-wrap:wrap;gap:8px;margin-top:22px}
@@ -1983,6 +2002,10 @@ html.control-glass-svg-ok #visual-guide-btn:hover{
     <div class="home-hero">
       <div class="home-hero-inner home-construction-inner">
         <div class="home-title home-construction-title">本地音乐台</div>
+        <div class="home-preview-panel">
+          <div class="home-preview-head"><span>iTunes 试听</span><span>30 秒预览</span></div>
+          <div id="home-preview-list" class="home-preview-list"></div>
+        </div>
         <button class="home-chip home-console-chip" type="button" onclick="openHomeLocalImport()">导入本地歌曲</button>
       </div>
     </div>
@@ -2728,7 +2751,13 @@ var audio = null, audioCtx = null, source = null, analyser = null, beatAnalyser 
 var uiSfxCtx = null, lastShelfSelectSfxAt = 0;
 var LOCAL_FIRST_MODE = true;
 var PUBLIC_SOURCE_EXPERIMENTAL = true;
-var PUBLIC_SOURCE_BASES = ['https://bb.qqmp3.vip', 'https://www.qqmp3.vip'];
+var GD_PUBLIC_API = 'https://music-api-hk.gdstudio.xyz/api.php';
+var AUDIUS_API = 'https://discoveryprovider.audius.co/v1/tracks/search';
+var ITUNES_SEARCH_API = 'https://itunes.apple.com/search';
+var ITUNES_HOME_PREVIEW_QUERIES = ['飞机场的10:30 陶喆', '似曾相识 陶喆', '千言万语 陶喆', '陶喆'];
+var homePreviewSongs = [];
+var homePreviewLoading = false;
+var homePreviewLoaded = false;
 var audioDirectMode = false;
 var FFT_SIZE = 2048;
 var frequencyData = new Uint8Array(FFT_SIZE / 2);
@@ -15590,8 +15619,11 @@ function renderHomeTiles() {
     if (summaryLocal.recent) {
       localTiles.push({ kind: 'recent', title: summaryLocal.recent.name || '继续听', sub: summaryLocal.recent.artist || summaryLocal.recent.source || '最近播放', cover: summaryLocal.recent.cover, record: summaryLocal.recent });
     }
+    homePreviewSongs.slice(0, Math.max(0, 2 - localTiles.length)).forEach(function(song, i){
+      localTiles.push({ kind: 'preview', index: i, song: song, title: song.name, sub: 'iTunes 试听 · ' + songDurationLabel(song), cover: song.cover });
+    });
     localTiles.push({ kind: 'local', title: '导入本地音乐', sub: '选择 MP3 / FLAC / WAV 等文件' });
-    localTiles.push({ kind: 'search', title: '试试公共源', sub: '输入歌名或歌手测试可用性', query: '' });
+    localTiles.push({ kind: 'search', title: '试试公共源', sub: 'GD / iTunes / Audius 实验搜索', query: '' });
     if (summaryLocal.topArtist) localTiles.push({ kind: 'profile', title: summaryLocal.topArtist.name, sub: '常听歌手 · ' + summaryLocal.topArtist.plays + ' 次', query: summaryLocal.topArtist.name });
     localTiles.push({ kind: 'guide', title: '视觉控制台', sub: '调节粒子、歌词和舞台效果' });
     localTiles = localTiles.slice(0, 5);
@@ -15686,6 +15718,7 @@ function renderHomeDiscover() {
     if (profileSub) profileSub.textContent = summary.topArtist ? ('常听歌手 · ' + summary.topArtist.plays + ' 次') : (summary.totalPlays ? summary.totalPlays + ' 次有效播放' : '播放几首后生成偏好');
     if (libTitle) libTitle.textContent = '播放器控制台';
     if (libSub) libSub.textContent = '展开底部播放控制';
+    renderHomePreviewTracks();
     setHomeArt('home-weather-art', '', 280);
     setHomeArt('home-daily-art', '', 280);
     setHomeArt('home-private-art', '', 280);
@@ -15693,6 +15726,7 @@ function renderHomeDiscover() {
     setHomeArt('home-profile-art', summary.topSong && summary.topSong.cover || summary.recent && summary.recent.cover, 280);
     setHomeArt('home-library-art', '', 280);
     renderHomeTiles();
+    loadHomePreviewSongs();
     return;
   }
   var sub = document.getElementById('home-subtitle');
@@ -15776,6 +15810,86 @@ function renderHomeDiscover() {
     setHomeArt('home-library-art', cardSongC && cardSongC.cover || summary.topSong && summary.topSong.cover || summary.recent && summary.recent.cover || podcastItem && podcastItem.cover, 280);
   }
   renderHomeTiles();
+}
+function renderHomePreviewTracks() {
+  var list = document.getElementById('home-preview-list');
+  if (!list) return;
+  if (!homePreviewSongs.length) {
+    var title = homePreviewLoading ? '正在载入试听推荐' : '搜索 iTunes 试听';
+    var sub = homePreviewLoading ? '从 iTunes 获取 30 秒 preview' : '也可以直接在顶部输入歌名';
+    list.innerHTML = '<button class="home-preview-track" type="button" onclick="runHomeSearch(\'\')">' +
+      '<span class="home-preview-track-art" aria-hidden="true"></span>' +
+      '<span><span class="home-preview-track-title">' + escHtml(title) + '</span><span class="home-preview-track-sub">' + escHtml(sub) + '</span></span>' +
+      '<span class="home-preview-track-time">WEB</span>' +
+    '</button>';
+    return;
+  }
+  list.innerHTML = homePreviewSongs.slice(0, 4).map(function(song, i){
+    var coverStyle = song.cover ? ' style="background-image:url(&quot;' + escHtml(cssImageUrl(song.cover)) + '&quot;)"' : '';
+    return '<button class="home-preview-track" type="button" onclick="playHomePreviewTrack(' + i + ')">' +
+      '<span class="home-preview-track-art' + (song.cover ? ' has-cover' : '') + '" aria-hidden="true"' + coverStyle + '></span>' +
+      '<span><span class="home-preview-track-title">' + escHtml(song.name) + '</span><span class="home-preview-track-sub">' + escHtml(song.artist || 'iTunes') + '</span></span>' +
+      '<span class="home-preview-track-time">' + escHtml(songDurationLabel(song)) + '</span>' +
+    '</button>';
+  }).join('');
+}
+async function loadHomePreviewSongs(force) {
+  if (!PUBLIC_SOURCE_EXPERIMENTAL || homePreviewLoading || (homePreviewLoaded && !force)) return;
+  homePreviewLoading = true;
+  renderHomePreviewTracks();
+  try {
+    var batches = await Promise.allSettled(ITUNES_HOME_PREVIEW_QUERIES.map(function(query){
+      return fetchItunesPublicSearchResults(query);
+    }));
+    var seen = {};
+    var songs = [];
+    batches.forEach(function(batch){
+      if (batch.status !== 'fulfilled') return;
+      var picked = false;
+      (batch.value || []).forEach(function(song){
+        var key = String(song.id || (song.name + '|' + song.artist));
+        if (seen[key]) return;
+        seen[key] = true;
+        if (!picked) {
+          songs.push(song);
+          picked = true;
+        }
+      });
+    });
+    batches.forEach(function(batch){
+      if (batch.status !== 'fulfilled') return;
+      (batch.value || []).forEach(function(song){
+        if (songs.length >= 4) return;
+        var key = String(song.id || (song.name + '|' + song.artist));
+        if (seen['fill:' + key]) return;
+        seen['fill:' + key] = true;
+        if (songs.indexOf(song) < 0) songs.push(song);
+      });
+    });
+    homePreviewSongs = songs.slice(0, 4).map(cloneSong);
+    homePreviewLoaded = true;
+  } catch (err) {
+    console.warn('[HomePreview]', err);
+    homePreviewLoaded = true;
+  } finally {
+    homePreviewLoading = false;
+    renderHomePreviewTracks();
+    renderHomeTiles();
+  }
+}
+async function playHomePreviewTrack(index) {
+  var songs = homePreviewSongs.map(cloneSong);
+  if (!songs.length) return;
+  index = Math.max(0, Math.min(songs.length - 1, Number(index) || 0));
+  homeForcedOpen = false;
+  homeSuppressed = false;
+  setHomeControlsLocked(false);
+  playQueue = songs;
+  currentIdx = index;
+  safeRenderQueuePanel('home-preview', { scrollCurrent: true });
+  safeShelfRebuild('home-preview', true);
+  forcePlaybackControlsInteractive();
+  await playQueueAt(index);
 }
 async function loadHomeDiscover(force) {
   if (LOCAL_FIRST_MODE) {
@@ -16496,6 +16610,7 @@ function handleHomeTileClick(index) {
   else if (item.kind === 'song') playHomeSong(item.index);
   else if (item.kind === 'login') showLoginModal({ source: 'home-tile' });
   else if (item.kind === 'local') openHomeLocalImport();
+  else if (item.kind === 'preview') playHomePreviewTrack(item.index);
   else if (item.kind === 'guide') openHomeProductGuide();
   else if (item.kind === 'search') runHomeSearch(item.query || '');
   else if (item.kind === 'playlist') openHomePlaylist(item.index);
@@ -16516,7 +16631,8 @@ function songDurationLabel(song) {
 }
 function songSourceLabel(song) {
   if (!song) return '未知';
-  if (song.provider === 'public' || song.source === 'public' || song.type === 'public') return '公共源';
+  var key = songProviderKey(song);
+  if (isPublicSourceProviderKey(key)) return song.publicSourceLabel || publicSourceLabel(song);
   if (song.provider === 'qq' || song.source === 'qq' || song.type === 'qq') return 'QQ 音乐';
   if (song.type === 'local') return '本地上传';
   if (song.type === 'podcast' || song.source === 'podcast') return '网易云播客';
@@ -17697,21 +17813,34 @@ document.addEventListener('click', function(e){
 updateSearchModeTabs();
 
 function songProviderKey(song) {
+  if (song && (song.provider === 'gd-netease' || song.source === 'gd-netease' || song.publicProvider === 'gd-netease')) return 'gd-netease';
+  if (song && (song.provider === 'gd-kuwo' || song.source === 'gd-kuwo' || song.publicProvider === 'gd-kuwo')) return 'gd-kuwo';
+  if (song && (song.provider === 'itunes' || song.source === 'itunes' || song.publicProvider === 'itunes')) return 'itunes';
+  if (song && (song.provider === 'audius' || song.source === 'audius' || song.publicProvider === 'audius')) return 'audius';
   if (song && (song.provider === 'public' || song.source === 'public' || song.type === 'public')) return 'public';
   if (song && (song.type === 'local' || song.source === 'local' || song.localUrl)) return 'local';
   if (song && (song.provider === 'qq' || song.source === 'qq' || song.type === 'qq')) return 'qq';
   return 'netease';
 }
+function isPublicSourceProviderKey(key) {
+  return key === 'public' || key === 'gd-netease' || key === 'gd-kuwo' || key === 'itunes' || key === 'audius';
+}
 function songSourceTagHtml(song) {
   var key = songProviderKey(song);
-  var label = key === 'qq' ? 'QQ' : (key === 'public' ? 'WEB' : (key === 'local' ? 'LOCAL' : 'NE'));
+  var label = key === 'qq' ? 'QQ'
+    : (key === 'gd-netease' ? 'GD'
+    : (key === 'gd-kuwo' ? 'GD'
+    : (key === 'itunes' ? 'ITUNES'
+    : (key === 'audius' ? 'AUDIUS'
+    : (key === 'public' ? 'WEB'
+    : (key === 'local' ? 'LOCAL' : 'NE'))))));
   return '<span class="tag-source ' + key + '">' + label + '</span>';
 }
 function searchResultMetaText(song) {
   var bits = [];
   if (song.artist) bits.push(song.artist);
   if (song.album) bits.push(song.album);
-  if (songProviderKey(song) === 'public') bits.push('公共源实验');
+  if (isPublicSourceProviderKey(songProviderKey(song))) bits.push((song.publicSourceLabel || publicSourceLabel(song)) + ' · 实验');
   return bits.join('  ·  ') || songSourceLabel(song);
 }
 function searchResultMetaHtml(song, index) {
@@ -17719,7 +17848,7 @@ function searchResultMetaHtml(song, index) {
   var artist = String(song.artist || '').trim();
   var bits = [];
   if (song.album) bits.push(song.album);
-  if (songProviderKey(song) === 'public') bits.push('公共源实验');
+  if (isPublicSourceProviderKey(songProviderKey(song))) bits.push((song.publicSourceLabel || publicSourceLabel(song)) + ' · 实验');
   var tail = bits.length ? (' · ' + escHtml(bits.join('  ·  '))) : '';
   if (!artist) return escHtml(searchResultMetaText(song));
   return '<button class="search-artist-link" type="button" onclick="event.stopPropagation();openSearchResultArtist(' + index + ')">' + escHtml(artist) + '</button>' + tail;
@@ -17812,7 +17941,11 @@ function scoreSongSearchResult(song, q, sourceIndex) {
   if (artistMentioned && name && nq.indexOf(name) >= 0) score += 34;
   if (/周杰伦|周杰倫|jay\s*chou/i.test(String(q || '')) && !artistMentioned) score -= 28;
   if (album && nq && (album.indexOf(nq) >= 0 || nq.indexOf(album) >= 0)) score += 8;
-  if (songProviderKey(song) === 'qq') score += searchIntentPrefersQQ(q) ? 48 : 4;
+  var providerKey = songProviderKey(song);
+  if (providerKey === 'qq') score += searchIntentPrefersQQ(q) ? 48 : 4;
+  if (providerKey === 'gd-netease' || providerKey === 'gd-kuwo') score += /[\u4e00-\u9fff]/.test(String(q || '')) ? 16 : 8;
+  if (providerKey === 'itunes') score += 4;
+  if (providerKey === 'audius') score += /[\u4e00-\u9fff]/.test(String(q || '')) ? -8 : 8;
   if (song && song.playable === false) score -= 12;
   if (!qAsksDerivative) {
     if (derivative) score -= artistMentioned ? 76 : 96;
@@ -17838,9 +17971,6 @@ function mergeSongSearchResults(neteaseSongs, qqSongs, limit, q) {
   out.sort(function(a, b){ return (b._searchScore || 0) - (a._searchScore || 0); });
   return out.slice(0, limit);
 }
-function publicSourceUrl(base, path) {
-  return String(base || '').replace(/\/+$/, '') + path;
-}
 function publicSourceErrorText(err) {
   var msg = String((err && err.message) || err || '');
   if (/429/.test(msg)) return '公共源请求太频繁，稍后再试';
@@ -17848,68 +17978,250 @@ function publicSourceErrorText(err) {
   if (/failed to fetch|cors|network/i.test(msg)) return '公共源被浏览器跨域限制或网络拦截';
   return msg || '公共源暂不可用';
 }
-async function fetchPublicSourceJson(path, opts) {
+async function fetchPublicJson(url, opts) {
   opts = opts || {};
-  var errors = [];
-  for (var i = 0; i < PUBLIC_SOURCE_BASES.length; i++) {
-    var base = PUBLIC_SOURCE_BASES[i];
-    var url = publicSourceUrl(base, path);
-    try {
-      var res = await fetch(url, {
-        cache: 'no-store',
-        mode: 'cors',
-        signal: opts.signal
-      });
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      return await res.json();
-    } catch (err) {
-      errors.push(base + ': ' + publicSourceErrorText(err));
+  var res = await fetch(url, {
+    cache: 'no-store',
+    mode: 'cors',
+    signal: opts.signal
+  });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  return await res.json();
+}
+function publicUrlEncode(value) {
+  return encodeURIComponent(String(value == null ? '' : value))
+    .replace(/\(/g, '%28')
+    .replace(/\)/g, '%29')
+    .replace(/\*/g, '%2A')
+    .replace(/'/g, '%27')
+    .replace(/!/g, '%21');
+}
+function publicCrc32(str) {
+  str = String(str || '');
+  var table = publicCrc32.table;
+  if (!table) {
+    table = publicCrc32.table = [];
+    for (var n = 0; n < 256; n++) {
+      var c = n;
+      for (var k = 0; k < 8; k++) c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
+      table[n] = c >>> 0;
     }
   }
-  throw new Error(errors.join(' | ') || 'PUBLIC_SOURCE_FAILED');
+  var crc = 0 ^ -1;
+  for (var i = 0; i < str.length; i++) crc = (crc >>> 8) ^ table[(crc ^ str.charCodeAt(i)) & 0xff];
+  return (crc ^ -1) >>> 0;
 }
-function publicSourceSongFromRecord(record, index) {
+function gdPublicApiUrl(params) {
+  var query = Object.keys(params || {}).map(function(key){
+    return encodeURIComponent(key) + '=' + String(params[key] == null ? '' : params[key]);
+  }).join('&');
+  return GD_PUBLIC_API + '?' + query;
+}
+function publicSourceLabel(song) {
+  var source = String((song && (song.publicProvider || song.provider || song.source)) || '').toLowerCase();
+  if (source === 'gd-netease') return 'GD 网易云';
+  if (source === 'gd-kuwo') return 'GD 酷我';
+  if (source === 'itunes') return 'iTunes 试听';
+  if (source === 'audius') return 'Audius';
+  return '公共源';
+}
+function publicSourceSongFromRecord(record, index, provider) {
   record = record || {};
   var rid = record.rid || record.id || record.songmid || record.mid || '';
   var name = record.name || record.songname || record.title || '';
-  var artist = record.artist || record.singer || record.author || '';
+  var artist = Array.isArray(record.artist) ? record.artist.join(', ') : (record.artist || record.singer || record.author || '');
   var cover = record.pic || record.cover || record.img || record.albumPic || '';
   return {
-    provider: 'public',
-    source: 'public',
+    provider: provider || 'public',
+    publicProvider: provider || 'public',
+    source: provider || 'public',
     type: 'public',
-    id: rid || ('public-' + index + '-' + simpleSearchNorm(name + artist)),
+    id: (provider || 'public') + '-' + (rid || (index + '-' + simpleSearchNorm(name + artist))),
     rid: rid,
+    sourceId: record.source || '',
+    urlId: record.url_id || rid,
+    lyricId: record.lyric_id || rid,
+    picId: record.pic_id || '',
     name: name,
     artist: artist,
     album: record.album || record.albumname || '',
     cover: cover,
-    duration: Number(record.duration || record.interval || 0) || 0,
+    duration: Number(record.duration || record.interval || (record.extra_data && record.extra_data.duration) || 0) || 0,
     playable: !!rid,
+    publicSourceLabel: publicSourceLabel({ publicProvider: provider }),
     raw: record
   };
 }
+function gdPublicSongFromRecord(record, index, source) {
+  var song = publicSourceSongFromRecord(record, index, 'gd-' + source);
+  song.source = 'gd-' + source;
+  song.publicProvider = 'gd-' + source;
+  song.sourceId = record && record.source || source;
+  if (source === 'kuwo' && song.cover && !/^https?:\/\//i.test(song.cover)) {
+    song.cover = 'https://img1.kuwo.cn/star/albumcover/' + song.cover.replace(/^\/+/, '');
+  }
+  song.publicSourceLabel = source === 'kuwo' ? 'GD 酷我' : 'GD 网易云';
+  return song;
+}
+function itunesSongFromRecord(record, index) {
+  record = record || {};
+  var cover = record.artworkUrl100 || record.artworkUrl60 || '';
+  cover = cover ? cover.replace(/100x100bb/i, '600x600bb').replace(/60x60bb/i, '600x600bb') : '';
+  return {
+    provider: 'itunes',
+    publicProvider: 'itunes',
+    source: 'itunes',
+    type: 'public',
+    id: 'itunes-' + (record.trackId || index),
+    name: record.trackName || record.collectionName || '',
+    artist: record.artistName || '',
+    album: record.collectionName || '',
+    cover: cover,
+    duration: Math.round((Number(record.trackTimeMillis) || 30000) / 1000),
+    publicAudioUrl: record.previewUrl || '',
+    publicLyric: '',
+    publicSourceLabel: 'iTunes 试听',
+    playable: !!record.previewUrl,
+    trial: true,
+    raw: record
+  };
+}
+function audiusSongFromRecord(record, index) {
+  record = record || {};
+  var art = record.artwork || {};
+  var stream = record.stream || {};
+  return {
+    provider: 'audius',
+    publicProvider: 'audius',
+    source: 'audius',
+    type: 'public',
+    id: 'audius-' + (record.id || index),
+    audiusId: record.id || '',
+    name: record.title || '',
+    artist: record.user && (record.user.name || record.user.handle) || '',
+    album: record.genre || record.mood || '',
+    cover: art['1000x1000'] || art['480x480'] || art['150x150'] || '',
+    duration: Number(record.duration) || 0,
+    publicAudioUrl: stream.url || '',
+    publicLyric: '',
+    publicSourceLabel: 'Audius',
+    playable: !!stream.url,
+    trial: false,
+    raw: record
+  };
+}
+async function fetchGdPublicSearchResults(q, source) {
+  var name = publicUrlEncode(q);
+  var data = await fetchPublicJson(gdPublicApiUrl({
+    types: 'search',
+    count: 8,
+    source: source,
+    pages: 1,
+    name: name,
+    s: publicCrc32(name)
+  }));
+  return (Array.isArray(data) ? data : []).map(function(record, index){
+    return gdPublicSongFromRecord(record, index, source);
+  }).filter(function(song){ return song && song.name && song.urlId; });
+}
+async function fetchGdPublicSongExtras(song, source) {
+  var tasks = [];
+  var lyricId = song && song.lyricId ? publicUrlEncode(song.lyricId) : '';
+  var picId = song && song.picId ? publicUrlEncode(song.picId) : '';
+  if (lyricId) {
+    tasks.push(fetchPublicJson(gdPublicApiUrl({
+      types: 'lyric',
+      id: lyricId,
+      source: source,
+      s: publicCrc32(lyricId)
+    })).then(function(data){
+      return { type: 'lyric', value: data && (data.lyric || data.lrc || '') || '' };
+    }));
+  }
+  if (picId && !(song && song.cover)) {
+    tasks.push(fetchPublicJson(gdPublicApiUrl({
+      types: 'pic',
+      id: picId,
+      source: source,
+      size: 300,
+      s: publicCrc32(picId)
+    })).then(function(data){
+      return { type: 'pic', value: data && data.url || '' };
+    }));
+  }
+  if (!tasks.length) return {};
+  var settled = await Promise.allSettled(tasks);
+  var out = {};
+  settled.forEach(function(item){
+    if (item.status !== 'fulfilled' || !item.value || !item.value.value) return;
+    if (item.value.type === 'lyric') out.lyric = item.value.value;
+    if (item.value.type === 'pic') out.cover = item.value.value;
+  });
+  return out;
+}
+async function fetchItunesPublicSearchResults(q) {
+  var params = new URLSearchParams({ term: q, entity: 'song', limit: '8', country: /[\u4e00-\u9fff]/.test(q) ? 'CN' : 'US' });
+  var data = await fetchPublicJson(ITUNES_SEARCH_API + '?' + params.toString());
+  return (Array.isArray(data && data.results) ? data.results : []).map(itunesSongFromRecord).filter(function(song){ return song.name && song.playable; });
+}
+async function fetchAudiusPublicSearchResults(q) {
+  var params = new URLSearchParams({ query: q, limit: '8', app_name: 'MineradioWeb' });
+  var data = await fetchPublicJson(AUDIUS_API + '?' + params.toString());
+  return (Array.isArray(data && data.data) ? data.data : []).map(audiusSongFromRecord).filter(function(song){ return song.name && song.playable; });
+}
 async function fetchPublicSourceSearchResults(q) {
   if (!PUBLIC_SOURCE_EXPERIMENTAL) return [];
-  var data = await fetchPublicSourceJson('/api/songs.php?type=search&keyword=' + encodeURIComponent(q));
-  var rows = Array.isArray(data && data.data) ? data.data : (Array.isArray(data && data.songs) ? data.songs : []);
-  return rows.map(publicSourceSongFromRecord).filter(function(song){ return song && song.name && song.rid; }).slice(0, 18);
+  var tasks = [
+    fetchGdPublicSearchResults(q, 'netease'),
+    fetchGdPublicSearchResults(q, 'kuwo'),
+    fetchItunesPublicSearchResults(q),
+    fetchAudiusPublicSearchResults(q)
+  ];
+  var settled = await Promise.allSettled(tasks);
+  var songs = [];
+  var errors = [];
+  settled.forEach(function(item){
+    if (item.status === 'fulfilled') songs = songs.concat(item.value || []);
+    else errors.push(publicSourceErrorText(item.reason));
+  });
+  if (!songs.length && errors.length) throw new Error(errors.join(' | '));
+  return mergeSongSearchResults(songs, [], 24, q);
 }
 async function fetchPublicSourcePlayback(song) {
-  var rid = song && (song.rid || song.id);
-  if (!rid) return { provider: 'public', url: '', playable: false, reason: 'url_unavailable', message: '公共源没有可用歌曲 ID' };
+  if (song && (song.publicAudioUrl || song.previewUrl || song.streamUrl)) {
+    var directUrl = song.publicAudioUrl || song.previewUrl || song.streamUrl;
+    return {
+      provider: song.publicProvider || song.provider || 'public',
+      url: directUrl,
+      lyric: song.publicLyric || song.lyric || song.lrc || '',
+      level: song.publicProvider === 'itunes' ? 'preview' : 'public',
+      quality: song.publicSourceLabel || publicSourceLabel(song),
+      trial: !!song.trial,
+      playable: true
+    };
+  }
+  var provider = String(song && (song.publicProvider || song.provider || '')).toLowerCase();
+  var source = provider === 'gd-kuwo' ? 'kuwo' : 'netease';
+  var rid = song && (song.urlId || song.rid || song.id);
+  if (!rid) return { provider: provider || 'public', url: '', playable: false, reason: 'url_unavailable', message: '公共源没有可用歌曲 ID' };
   try {
-    var data = await fetchPublicSourceJson('/api/kw.php?rid=' + encodeURIComponent(rid) + '&type=json&level=exhigh&lrc=true');
-    var payload = data && data.data || data || {};
-    var url = payload.url || payload.play_url || payload.src || payload.music_url || '';
-    var lyric = payload.lrc || payload.lyric || payload.lyrics || '';
-    if (!url) return { provider: 'public', url: '', playable: false, reason: 'url_unavailable', message: (data && data.msg) || '公共源没有返回播放地址' };
+    var id = publicUrlEncode(rid);
+    var data = await fetchPublicJson(gdPublicApiUrl({
+      types: 'url',
+      id: id,
+      source: source,
+      br: 128,
+      s: publicCrc32(id)
+    }));
+    var url = data && data.url || '';
+    if (!url) return { provider: provider || 'public', url: '', playable: false, reason: 'url_unavailable', message: (data && data.msg) || '公共源没有返回播放地址' };
     song.publicAudioUrl = url;
-    song.publicLyric = lyric;
-    if (payload.pic || payload.cover) song.cover = song.cover || payload.pic || payload.cover;
-    return { provider: 'public', url: url, lyric: lyric, level: 'public', quality: '公共源', trial: false, playable: true };
+    var extras = await fetchGdPublicSongExtras(song, source);
+    if (extras.lyric) song.publicLyric = extras.lyric;
+    if (extras.cover) song.cover = song.cover || extras.cover;
+    return { provider: provider || 'public', url: url, lyric: song.publicLyric || '', level: 'public', quality: song.publicSourceLabel || publicSourceLabel(song), trial: false, playable: true };
   } catch (err) {
-    return { provider: 'public', url: '', playable: false, reason: 'public_source_failed', message: publicSourceErrorText(err) };
+    return { provider: provider || 'public', url: '', playable: false, reason: 'public_source_failed', message: publicSourceErrorText(err) };
   }
 }
 async function fetchMusicSearchResults(q, mode) {
@@ -18395,7 +18707,7 @@ var firstPlayDone = false;
 
 function playbackProviderLabel(song) {
   var key = songProviderKey(song);
-  if (key === 'public') return '公共源';
+  if (isPublicSourceProviderKey(key)) return publicSourceLabel(song);
   if (key === 'local') return '本地文件';
   return key === 'qq' ? 'QQ 音乐' : '网易云';
 }
@@ -18493,7 +18805,8 @@ function isSameTitleArtist(source, candidate) {
   return a.some(function(name){ return b.indexOf(name) >= 0; });
 }
 function alternatePlaybackProvider(song) {
-  if (songProviderKey(song) === 'public') return '';
+  var key = songProviderKey(song);
+  if (isPublicSourceProviderKey(key)) return '';
   return songProviderKey(song) === 'qq' ? 'netease' : 'qq';
 }
 function shouldAvoidFallbackToLoggedOutProvider(song) {
@@ -18511,6 +18824,14 @@ function playbackTrialBannerInfo(song, data) {
   data = data || {};
   var providerKey = songProviderKey(song);
   var providerLabel = playbackProviderLabel(song);
+  if (isPublicSourceProviderKey(providerKey)) {
+    return {
+      text: providerKey === 'itunes' ? 'iTunes 提供 30 秒试听片段' : providerLabel + '返回试听片段',
+      loginProvider: '',
+      showLogin: false,
+      loginText: ''
+    };
+  }
   var loggedIn = !!data.loggedIn;
   if (providerKey === 'qq') loggedIn = !!(data.loggedIn || hasPlatformLogin('qq'));
   var text;
@@ -18765,7 +19086,7 @@ async function playQueueAt(idx, opts) {
     markPlayPhase('source-url');
     var providerKey = songProviderKey(song);
     var isQQPlayback = providerKey === 'qq';
-    var isPublicPlayback = providerKey === 'public';
+    var isPublicPlayback = isPublicSourceProviderKey(providerKey);
     var requestedQuality = normalizePlaybackQuality(opts.qualityOverride || playbackQuality);
     if (!isQQPlayback && requestedQuality === 'jymaster' && !hasProviderSvip('netease', loginStatus)) requestedQuality = 'hires';
     if (isQQPlayback && qqPlaybackQualityCeiling && (requestedQuality === 'jymaster' || requestedQuality === 'hires' || requestedQuality === 'lossless')) {
@@ -19325,7 +19646,7 @@ async function fetchLyric(songOrId, token) {
     var song = (songOrId && typeof songOrId === 'object') ? songOrId : null;
     var provider = songProviderKey(song);
     var endpoint;
-    if (provider === 'public') {
+    if (isPublicSourceProviderKey(provider)) {
       var publicLyric = song && (song.publicLyric || song.lyric || song.lrc || '');
       if (token !== trackSwitchToken) return;
       var publicLines = parseLyricText(publicLyric || '');
