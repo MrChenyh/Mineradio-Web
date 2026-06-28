@@ -3,6 +3,8 @@
 const NETEASE_ORIGIN = 'https://music.163.com';
 const KUGOU_ORIGIN = 'https://www.kugou.com';
 const KUGOU_SIGN_SECRET = 'NVPh5oo715z5DIWAeQlhMDsWXXQV4hwt';
+const NETEASE_DEFAULT_LEVEL = 'standard';
+const NETEASE_AUDIO_RULE_ID = 163001;
 
 function jsonResponse(requestId, data) {
   return Object.assign({ requestId, ok: true }, data || {});
@@ -11,6 +13,32 @@ function jsonResponse(requestId, data) {
 function errorResponse(requestId, err) {
   const message = err && err.message ? err.message : String(err || 'Connector request failed');
   return { requestId, ok: false, error: message };
+}
+
+function installNeteaseAudioHeaderRule() {
+  if (!chrome.declarativeNetRequest || !chrome.declarativeNetRequest.updateDynamicRules) return;
+  chrome.declarativeNetRequest.updateDynamicRules({
+    removeRuleIds: [NETEASE_AUDIO_RULE_ID],
+    addRules: [{
+      id: NETEASE_AUDIO_RULE_ID,
+      priority: 1,
+      action: {
+        type: 'modifyHeaders',
+        requestHeaders: [
+          { header: 'Referer', operation: 'set', value: NETEASE_ORIGIN + '/' },
+          { header: 'Origin', operation: 'remove' }
+        ]
+      },
+      condition: {
+        urlFilter: '||music.126.net/',
+        resourceTypes: ['media', 'xmlhttprequest']
+      }
+    }]
+  }, () => {
+    if (chrome.runtime.lastError) {
+      console.warn('[Mineradio Connector] failed to install NetEase audio header rule', chrome.runtime.lastError.message);
+    }
+  });
 }
 
 function neteaseHeaders(extra) {
@@ -39,6 +67,101 @@ async function fetchJson(url, options) {
   } catch (err) {
     throw new Error('Invalid JSON from music.163.com');
   }
+}
+
+function formBody(params) {
+  return new URLSearchParams(params || {}).toString();
+}
+
+function normalizeNeteaseLevel(level) {
+  const value = String(level || '').trim().toLowerCase();
+  if (['standard', 'exhigh', 'lossless', 'hires', 'jyeffect', 'sky', 'jymaster'].includes(value)) return value;
+  return NETEASE_DEFAULT_LEVEL;
+}
+
+function chromeTabsQuery(query) {
+  return new Promise((resolve, reject) => {
+    if (!chrome.tabs || !chrome.tabs.query) return resolve([]);
+    chrome.tabs.query(query, tabs => {
+      if (chrome.runtime.lastError) return reject(new Error(chrome.runtime.lastError.message));
+      resolve(tabs || []);
+    });
+  });
+}
+
+function chromeExecuteScript(options) {
+  return new Promise((resolve, reject) => {
+    if (!chrome.scripting || !chrome.scripting.executeScript) return resolve([]);
+    chrome.scripting.executeScript(options, results => {
+      if (chrome.runtime.lastError) return reject(new Error(chrome.runtime.lastError.message));
+      resolve(results || []);
+    });
+  });
+}
+
+async function neteaseFetchJsonInMusicTab(path, params, method) {
+  try {
+    const tabs = await chromeTabsQuery({ url: [NETEASE_ORIGIN + '/*', 'http://music.163.com/*'] });
+    const tab = tabs.find(item => item && item.id && !item.discarded) || tabs.find(item => item && item.id);
+    if (!tab) return null;
+    const results = await chromeExecuteScript({
+      target: { tabId: tab.id },
+      func: async function (requestPath, requestParams, requestMethod) {
+        const url = new URL(requestPath, location.origin || 'https://music.163.com');
+        const body = new URLSearchParams(requestParams || {});
+        const init = {
+          credentials: 'include',
+          cache: 'no-store'
+        };
+        if (String(requestMethod || 'GET').toUpperCase() === 'POST') {
+          init.method = 'POST';
+          init.headers = { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' };
+          init.body = body.toString();
+        } else {
+          url.search = body.toString();
+        }
+        const res = await fetch(url.toString(), init);
+        const text = await res.text();
+        try {
+          return { ok: res.ok, status: res.status, json: JSON.parse(text) };
+        } catch (err) {
+          return { ok: false, status: res.status, error: text.slice(0, 200) };
+        }
+      },
+      args: [path, params || {}, method || 'GET']
+    });
+    const result = results && results[0] && results[0].result;
+    if (result && result.ok && result.json) return result.json;
+  } catch (err) {
+    console.warn('[Mineradio Connector] music.163.com tab fetch failed', err);
+  }
+  return null;
+}
+
+async function neteaseFetchPlayerUrlV1(ids, level) {
+  const params = {
+    ids: '[' + ids.map(String).join(',') + ']',
+    level: normalizeNeteaseLevel(level),
+    encodeType: 'flac'
+  };
+  const tabData = await neteaseFetchJsonInMusicTab('/api/song/enhance/player/url/v1', params, 'POST');
+  if (tabData) return tabData;
+  return fetchJson(NETEASE_ORIGIN + '/api/song/enhance/player/url/v1', {
+    method: 'POST',
+    body: formBody(params),
+    headers: neteaseHeaders({
+      Origin: NETEASE_ORIGIN,
+      'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
+    })
+  });
+}
+
+async function neteaseFetchPlayerUrlLegacy(ids, br) {
+  const params = new URLSearchParams({
+    ids: '[' + ids.map(String).join(',') + ']',
+    br: String(br || 128000)
+  });
+  return fetchJson(NETEASE_ORIGIN + '/api/song/enhance/player/url?' + params.toString());
 }
 
 function artistNames(list) {
@@ -366,12 +489,18 @@ async function neteaseBatchSongUrls(ids) {
   const out = new Map();
   if (!ids.length) return out;
   try {
-    const params = new URLSearchParams({
-      ids: JSON.stringify(ids),
-      br: '128000'
+    let data = await neteaseFetchPlayerUrlV1(ids, NETEASE_DEFAULT_LEVEL);
+    let items = (data && data.data) || [];
+    items.forEach(item => out.set(Number(item.id), item));
+    const missingIds = ids.filter(id => {
+      const item = out.get(Number(id));
+      return !item || !item.url;
     });
-    const data = await fetchJson(NETEASE_ORIGIN + '/api/song/enhance/player/url?' + params.toString());
-    ((data && data.data) || []).forEach(item => out.set(Number(item.id), item));
+    if (missingIds.length) {
+      data = await neteaseFetchPlayerUrlLegacy(missingIds, 128000);
+      items = (data && data.data) || [];
+      items.forEach(item => out.set(Number(item.id), item));
+    }
   } catch (err) {
     console.warn('[Mineradio Connector] playability probe failed', err);
   }
@@ -397,14 +526,14 @@ async function neteaseLyric(payload) {
 async function neteaseSongUrl(payload) {
   const id = String(payload && payload.id || '').trim();
   const br = String(payload && payload.br || 128000);
+  const level = normalizeNeteaseLevel(payload && payload.level);
   if (!id) throw new Error('Missing song id');
-  const params = new URLSearchParams({
-    id,
-    ids: '[' + id + ']',
-    br
-  });
-  const data = await fetchJson(NETEASE_ORIGIN + '/api/song/enhance/player/url?' + params.toString());
-  const item = data && data.data && data.data[0] || {};
+  let data = await neteaseFetchPlayerUrlV1([id], level);
+  let item = data && data.data && data.data[0] || {};
+  if (!item.url) {
+    data = await neteaseFetchPlayerUrlLegacy([id], br);
+    item = data && data.data && data.data[0] || {};
+  }
   const url = ensureHttpsAudioUrl(item.url || '');
   return {
     provider: 'netease-extension',
@@ -609,3 +738,5 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
   });
   return true;
 });
+
+installNeteaseAudioHeaderRule();

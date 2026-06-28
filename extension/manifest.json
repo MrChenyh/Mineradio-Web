@@ -1,11 +1,14 @@
 {
   "manifest_version": 3,
   "name": "Mineradio Connector",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Connects Mineradio Web to browser music sessions for local testing.",
   "permissions": [
     "cookies",
-    "storage"
+    "storage",
+    "tabs",
+    "scripting",
+    "declarativeNetRequest"
   ],
   "host_permissions": [
     "https://music.163.com/*",
