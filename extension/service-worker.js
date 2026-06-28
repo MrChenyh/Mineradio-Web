@@ -47,7 +47,7 @@ function artistNames(list) {
 
 function coverUrl(song) {
   const album = song && (song.album || song.al) || {};
-  const raw = album.picUrl || (album.picId ? ('https://p1.music.126.net/' + album.picId + '.jpg') : '');
+  const raw = album.picUrl || album.blurPicUrl || '';
   return raw || '';
 }
 
@@ -66,6 +66,8 @@ function normalizeSong(song) {
     duration: Math.round((Number(song.duration || song.dt) || 0) / 1000),
     fee: Number(song.fee || 0),
     playable: true,
+    playbackChecked: false,
+    playbackCode: 0,
     raw: {
       id: song.id,
       fee: song.fee,
@@ -102,8 +104,64 @@ async function neteaseSearch(payload) {
     offset: '0'
   }).toString();
   const data = await fetchJson(url);
-  const songs = ((data.result && data.result.songs) || []).map(normalizeSong).filter(song => song.id && song.name);
+  let songs = ((data.result && data.result.songs) || []).map(normalizeSong).filter(song => song.id && song.name);
+  songs = await enrichNeteaseSongs(songs);
   return { songs };
+}
+
+async function enrichNeteaseSongs(songs) {
+  if (!songs.length) return songs;
+  const ids = songs.map(song => Number(song.id)).filter(Boolean);
+  const detailMap = await neteaseSongDetails(ids);
+  songs.forEach(song => {
+    const detail = detailMap.get(Number(song.id));
+    if (!detail) return;
+    const album = detail.album || detail.al || {};
+    const artists = detail.artists || detail.ar || [];
+    song.cover = album.picUrl || album.blurPicUrl || song.cover || '';
+    song.album = album.name || song.album || '';
+    song.artist = artistNames(artists) || song.artist || '';
+    song.duration = Math.round((Number(detail.duration || detail.dt) || song.duration * 1000 || 0) / 1000);
+  });
+  const playability = await neteaseBatchSongUrls(ids);
+  songs.forEach(song => {
+    const item = playability.get(Number(song.id));
+    if (!item) return;
+    song.playbackChecked = true;
+    song.playbackCode = item.code || 0;
+    song.playable = !!item.url && Number(item.code || 0) === 200;
+    song.previewOnly = false;
+    if (item.url) song.probedAudioUrl = ensureHttpsAudioUrl(item.url);
+  });
+  return songs;
+}
+
+async function neteaseSongDetails(ids) {
+  const out = new Map();
+  if (!ids.length) return out;
+  try {
+    const data = await fetchJson(NETEASE_ORIGIN + '/api/song/detail?ids=' + encodeURIComponent(JSON.stringify(ids)));
+    ((data && data.songs) || []).forEach(song => out.set(Number(song.id), song));
+  } catch (err) {
+    console.warn('[Mineradio Connector] detail enrich failed', err);
+  }
+  return out;
+}
+
+async function neteaseBatchSongUrls(ids) {
+  const out = new Map();
+  if (!ids.length) return out;
+  try {
+    const params = new URLSearchParams({
+      ids: JSON.stringify(ids),
+      br: '128000'
+    });
+    const data = await fetchJson(NETEASE_ORIGIN + '/api/song/enhance/player/url?' + params.toString());
+    ((data && data.data) || []).forEach(item => out.set(Number(item.id), item));
+  } catch (err) {
+    console.warn('[Mineradio Connector] playability probe failed', err);
+  }
+  return out;
 }
 
 async function neteaseLyric(payload) {

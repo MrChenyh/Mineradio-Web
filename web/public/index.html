@@ -18308,14 +18308,19 @@ function normalizeConnectorSong(song) {
     album: song.album || '',
     cover: song.cover || '',
     duration: Number(song.duration || 0) || 0,
-    playable: song.playable !== false
+    playable: song.playable !== false,
+    playbackChecked: !!song.playbackChecked,
+    playbackCode: Number(song.playbackCode || 0) || 0,
+    publicAudioUrl: song.probedAudioUrl || song.publicAudioUrl || ''
   });
 }
 async function fetchConnectorNeteaseSearchResults(q) {
   if (!connectorState.available) return [];
   try {
     var res = await connectorRequest('netease.search', { q: q, limit: 12 }, 9000);
-    return (Array.isArray(res.songs) ? res.songs : []).map(normalizeConnectorSong).filter(function(song){ return song.id && song.name; });
+    return (Array.isArray(res.songs) ? res.songs : []).map(normalizeConnectorSong).filter(function(song){
+      return song.id && song.name && song.playable !== false;
+    });
   } catch (err) {
     console.warn('[ConnectorSearch]', err);
     return [];
@@ -18324,6 +18329,16 @@ async function fetchConnectorNeteaseSearchResults(q) {
 async function fetchConnectorPlayback(song) {
   if (!connectorState.available) {
     return { provider: 'netease-extension', url: '', playable: false, reason: 'connector_missing', message: '未检测到 Mineradio Connector 扩展' };
+  }
+  if (song && song.publicAudioUrl) {
+    return {
+      provider: 'netease-extension',
+      url: song.publicAudioUrl,
+      level: 'standard',
+      quality: '网易云扩展',
+      trial: false,
+      playable: true
+    };
   }
   try {
     var res = await connectorRequest('netease.songUrl', { id: song && song.id, br: 128000 }, 9000);
@@ -18986,6 +19001,7 @@ function playbackRestrictionMessage(song, data) {
     else if (category === 'paid_required') message = provider + '歌曲需要购买或更高权限';
     else if (category === 'trial_only') message = provider + '仅返回试听片段';
     else if (category === 'copyright_unavailable') message = provider + '版权暂不可播';
+    else if (songProviderKey(song) === 'netease-extension') message = '网易云扩展没有拿到播放地址，当前账号可能无版权或会员权限';
     else message = provider + '没有返回可播放地址';
   }
   if (category === 'login_required' && !LOCAL_FIRST_MODE) return message + ' · 正在打开登录';
