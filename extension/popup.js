@@ -4,7 +4,7 @@ function setStatus(provider, state, label, meta) {
   var box = document.getElementById(provider + '-status');
   if (!box) return;
   document.getElementById(provider + '-status-label').textContent = label;
-  document.getElementById(provider + '-status-meta').textContent = meta;
+  document.getElementById(provider + '-status-meta').textContent = meta || '';
   box.classList.toggle('ok', state === 'ok');
   box.classList.toggle('warn', state === 'warn');
 }
@@ -47,11 +47,12 @@ function refreshQQStatus() {
     }
     var status = response.status || {};
     if (status.loggedIn && status.playbackKeyReady) {
-      setStatus('qq', 'ok', 'QQ 音乐网页登录态已检测到', (status.nickname || status.userId || '已登录') + ' · 可尝试 QQ-X 搜索和播放');
+      var tabText = status.musicTabReady ? 'y.qq.com 标签页可用' : '建议保持 y.qq.com 打开';
+      setStatus('qq', 'ok', 'QQ 音乐网页登录态已检测到', (status.nickname || status.userId || '已登录') + ' · ' + tabText + ' · 可尝试 QQ-X 搜索和播放');
     } else if (status.loggedIn) {
-      setStatus('qq', 'warn', 'QQ 音乐账号已检测到', '播放授权 Cookie 不完整，请在 QQ 音乐网页播放任意歌曲后刷新状态');
+      setStatus('qq', 'warn', 'QQ 音乐账号已检测到', '播放授权 Cookie 不完整；请打开 y.qq.com 并播放任意歌曲后刷新状态。Cookie: ' + (status.cookieCount || 0));
     } else {
-      setStatus('qq', 'warn', '未检测到 QQ 音乐网页登录态', '请先在浏览器里登录 y.qq.com');
+      setStatus('qq', 'warn', '未检测到 QQ 音乐网页登录态', '请先在浏览器里登录 y.qq.com；如已登录，请在扩展页确认已允许 QQ 音乐权限。Cookie: ' + (status.cookieCount || 0));
     }
   });
 }

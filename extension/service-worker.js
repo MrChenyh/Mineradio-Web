@@ -14,6 +14,9 @@ const QQ_QUALITY_CANDIDATE_TEMPLATES = [
   { prefix: 'M500', ext: '.mp3', level: 'standard', label: 'QQ 128k' },
   { prefix: 'C400', ext: '.m4a', level: 'aac', label: 'QQ AAC' }
 ];
+const NETEASE_HOME_PLAYLIST_LIMIT = 50;
+const NETEASE_HOME_PLAYLIST_RENDER_LIMIT = 48;
+const NETEASE_PLAYLIST_TRACK_LIMIT = 240;
 
 function jsonResponse(requestId, data) {
   return Object.assign({ requestId, ok: true }, data || {});
@@ -515,12 +518,13 @@ async function neteaseHome() {
   const tasks = await Promise.allSettled([
     fetchJson(NETEASE_ORIGIN + '/api/v3/discovery/recommend/songs?t=' + Date.now()),
     fetchJson(NETEASE_ORIGIN + '/api/v1/discovery/recommend/resource?t=' + Date.now()),
-    status.userId ? fetchJson(NETEASE_ORIGIN + '/api/user/playlist?' + new URLSearchParams({ uid: status.userId, limit: '12', offset: '0', t: Date.now().toString() }).toString()) : Promise.resolve({ playlist: [] })
+    status.userId ? fetchJson(NETEASE_ORIGIN + '/api/user/playlist?' + new URLSearchParams({ uid: status.userId, limit: String(NETEASE_HOME_PLAYLIST_LIMIT), offset: '0', t: Date.now().toString() }).toString()) : Promise.resolve({ playlist: [] })
   ]);
   const dailyBody = tasks[0].status === 'fulfilled' ? tasks[0].value || {} : {};
   const dailyRaw = dailyBody.data && (dailyBody.data.dailySongs || dailyBody.data.recommend) || dailyBody.recommend || [];
   let dailySongs = (Array.isArray(dailyRaw) ? dailyRaw : []).map(normalizeSong).filter(song => song.id && song.name).slice(0, 12);
   dailySongs = await enrichNeteaseSongs(dailySongs);
+  dailySongs = dailySongs.filter(song => song.playable !== false);
   const recommendBody = tasks[1].status === 'fulfilled' ? tasks[1].value || {} : {};
   const recommendPlaylists = (recommendBody.recommend || recommendBody.data || []).map(item => normalizeNeteasePlaylist(item, 'playlist')).filter(item => item.id && item.name);
   const userBody = tasks[2].status === 'fulfilled' ? tasks[2].value || {} : {};
@@ -530,7 +534,7 @@ async function neteaseHome() {
     if (seen.has(item.id)) return false;
     seen.add(item.id);
     return true;
-  }).slice(0, 12);
+  }).slice(0, NETEASE_HOME_PLAYLIST_RENDER_LIMIT);
   return {
     loggedIn: true,
     user: { provider: 'netease', userId: status.userId || '', nickname: status.nickname || '', avatar: status.avatar || '' },
@@ -547,7 +551,7 @@ async function neteasePlaylistTracks(payload) {
   if (!id) throw new Error('Missing playlist id');
   const data = await fetchJson(NETEASE_ORIGIN + '/api/v6/playlist/detail?' + new URLSearchParams({ id, n: '1000', s: '8', t: Date.now().toString() }).toString());
   const playlist = data && data.playlist || {};
-  let tracks = (playlist.tracks || []).map(normalizeSong).filter(song => song.id && song.name).slice(0, 80);
+  let tracks = (playlist.tracks || []).map(normalizeSong).filter(song => song.id && song.name).slice(0, NETEASE_PLAYLIST_TRACK_LIMIT);
   tracks = await enrichNeteaseSongs(tracks);
   return { provider: 'netease-extension', playlist: normalizeNeteasePlaylist(playlist, 'playlist'), tracks };
 }
@@ -764,6 +768,15 @@ function qqCookieLoginReady(obj) {
     obj.luin || obj.pt2gguin || obj.o_cookie || obj.openid || obj.login_type || obj.tmeLoginType);
 }
 
+async function qqMusicTabReady() {
+  try {
+    const tabs = await chromeTabsQuery({ url: [QQ_ORIGIN + '/*'] });
+    return tabs.some(item => item && item.id && !item.discarded);
+  } catch (err) {
+    return false;
+  }
+}
+
 function qqCookieDiagnosticNames(obj) {
   return Object.keys(obj || {})
     .filter(name => /uin|skey|qqmusic|qm_|token|login|openid|wx|ptnick/i.test(name))
@@ -945,7 +958,10 @@ function normalizeQQProfile(body, cookieObj) {
 
 async function qqStatus() {
   const cookieObj = await qqCookieObjectFromBrowser();
+  const tabReady = await qqMusicTabReady();
   const fallback = normalizeQQProfile(null, cookieObj);
+  fallback.musicTabReady = tabReady;
+  fallback.cookieCount = Object.keys(cookieObj || {}).length;
   if (!fallback.loggedIn) return fallback;
   try {
     const body = await qqGetJSON('https://c.y.qq.com/rsc/fcgi-bin/fcg_get_profile_homepage.fcg', {
@@ -962,7 +978,10 @@ async function qqStatus() {
       platform: 'yqq.json',
       needNewCode: '0'
     }, { cookieObj });
-    return normalizeQQProfile(body, cookieObj);
+    return Object.assign(normalizeQQProfile(body, cookieObj), {
+      musicTabReady: tabReady,
+      cookieCount: fallback.cookieCount
+    });
   } catch (err) {
     return Object.assign({}, fallback, { profileUnavailable: true });
   }

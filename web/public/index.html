@@ -14511,7 +14511,9 @@ function makeContentListManager() {
           ? await apiJson('/api/podcast/my/items?key=' + encodeURIComponent(podcastCollectionKey) + '&limit=36')
           : (qqPlaylistId
             ? await apiJson('/api/qq/playlist/tracks?id=' + encodeURIComponent(qqPlaylistId))
-            : await apiJson('/api/playlist/tracks?id=' + encodeURIComponent(playlistId)));
+            : (LOCAL_FIRST_MODE && connectorState.available
+              ? await connectorRequest('netease.playlistTracks', { id: playlistId }, 14000)
+              : await apiJson('/api/playlist/tracks?id=' + encodeURIComponent(playlistId))));
       } catch (e) {
         if (!open || token !== requestToken) return;
         console.warn('[ShelfContentLoadApi]', playlistId, e);
@@ -19331,6 +19333,7 @@ function alternatePlaybackProvider(song) {
 }
 function shouldAvoidFallbackToLoggedOutProvider(song) {
   var fromKey = songProviderKey(song);
+  if (isConnectorProviderKey(fromKey) || isPublicSourceProviderKey(fromKey)) return false;
   var targetKey = alternatePlaybackProvider(song);
   return hasPlatformLogin(fromKey) && !hasPlatformLogin(targetKey);
 }
@@ -19563,6 +19566,7 @@ function scheduleAudioResumePosition(media, seconds, token) {
 async function playQueueAt(idx, opts) {
   opts = opts || {};
   if (idx < 0 || idx >= playQueue.length) return;
+  if (opts.autoSkipUnavailable == null && !opts.manual && playQueue.length > 1) opts.autoSkipUnavailable = true;
   markRenderInteraction('track-switch', 1500);
   var playPhase = 'start';
   function markPlayPhase(name) { playPhase = name; }
@@ -20609,7 +20613,7 @@ function renderMiniQueuePanel(opts) {
   $list.innerHTML = playQueue.map(function(song, i){
     var thumb = songCoverSrc(song, 60);
     var imgTag = thumb ? '<img src="' + thumb + '" alt="" loading="lazy" decoding="async" onerror="this.style.opacity=0.2">' : '<div class="mini-queue-cover"></div>';
-    return '<div class="mini-queue-item' + (i === currentIdx ? ' now' : '') + '" onclick="playQueueAt(' + i + ')">' +
+    return '<div class="mini-queue-item' + (i === currentIdx ? ' now' : '') + '" onclick="playQueueAt(' + i + ', { autoSkipUnavailable: true })">' +
       imgTag +
       '<div class="mini-queue-info"><div class="mini-queue-name">' + escHtml(song.name) + '</div><div class="mini-queue-sub">' + escHtml(song.artist || '') + '</div></div>' +
       '<button class="mini-queue-remove mini-queue-next" onclick="event.stopPropagation();queueIndexNext(' + i + ')" title="下一首播放">下</button>' +
@@ -20643,7 +20647,7 @@ function renderQueuePanel(opts) {
   $ql.innerHTML = playQueue.map(function(song, i){
     var thumb = songCoverSrc(song, 60);
     var imgTag = thumb ? '<img src="' + thumb + '" alt="" loading="lazy" decoding="async" onerror="this.style.opacity=0.2">' : '<div style="width:38px;height:38px;border-radius:6px;background:rgba(255,255,255,.06);flex-shrink:0"></div>';
-    return '<div class="queue-item' + (i === currentIdx ? ' now' : '') + '" onclick="playQueueAt(' + i + ')">' +
+    return '<div class="queue-item' + (i === currentIdx ? ' now' : '') + '" onclick="playQueueAt(' + i + ', { autoSkipUnavailable: true })">' +
       imgTag +
       '<div class="qi-info"><div class="qi-name">' + escHtml(song.name) + '</div><div class="qi-sub"><button class="queue-artist-link" type="button" onclick="event.stopPropagation();openQueueArtist(' + i + ')">' + escHtml(song.artist || '未知歌手') + '</button></div></div>' +
       '<div class="qi-act">' +
