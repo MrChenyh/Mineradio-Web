@@ -777,6 +777,37 @@ async function qqMusicTabReady() {
   }
 }
 
+async function qqTabLoginProbe() {
+  try {
+    const tabs = await chromeTabsQuery({ url: [QQ_ORIGIN + '/*'] });
+    const tab = tabs.find(item => item && item.id && !item.discarded) || tabs.find(item => item && item.id);
+    if (!tab) return null;
+    const results = await chromeExecuteScript({
+      target: { tabId: tab.id },
+      func: function () {
+        var cookieNames = String(document.cookie || '').split(';').map(function (part) {
+          return part.split('=')[0].trim();
+        }).filter(Boolean);
+        var text = '';
+        try { text = document.body ? document.body.innerText.slice(0, 800) : ''; } catch (err) {}
+        var storageKeys = [];
+        try {
+          for (var i = 0; i < localStorage.length; i++) storageKeys.push(localStorage.key(i));
+        } catch (err) {}
+        return {
+          href: location.href,
+          cookieNames: cookieNames.filter(function (name) { return /uin|skey|qqmusic|qm_|token|login|openid|wx|ptnick/i.test(name); }).slice(0, 24),
+          hasLoginText: /退出|个人主页|我的音乐|已登录|账号/.test(text),
+          storageKeys: storageKeys.filter(function (name) { return /uin|skey|qqmusic|token|login|user|profile/i.test(name); }).slice(0, 24)
+        };
+      }
+    });
+    return results && results[0] && results[0].result || null;
+  } catch (err) {
+    return { error: err && err.message || String(err) };
+  }
+}
+
 function qqCookieDiagnosticNames(obj) {
   return Object.keys(obj || {})
     .filter(name => /uin|skey|qqmusic|qm_|token|login|openid|wx|ptnick/i.test(name))
@@ -959,9 +990,11 @@ function normalizeQQProfile(body, cookieObj) {
 async function qqStatus() {
   const cookieObj = await qqCookieObjectFromBrowser();
   const tabReady = await qqMusicTabReady();
+  const tabProbe = await qqTabLoginProbe();
   const fallback = normalizeQQProfile(null, cookieObj);
   fallback.musicTabReady = tabReady;
   fallback.cookieCount = Object.keys(cookieObj || {}).length;
+  fallback.tabProbe = tabProbe;
   if (!fallback.loggedIn) return fallback;
   try {
     const body = await qqGetJSON('https://c.y.qq.com/rsc/fcgi-bin/fcg_get_profile_homepage.fcg', {
@@ -980,7 +1013,8 @@ async function qqStatus() {
     }, { cookieObj });
     return Object.assign(normalizeQQProfile(body, cookieObj), {
       musicTabReady: tabReady,
-      cookieCount: fallback.cookieCount
+      cookieCount: fallback.cookieCount,
+      tabProbe
     });
   } catch (err) {
     return Object.assign({}, fallback, { profileUnavailable: true });
