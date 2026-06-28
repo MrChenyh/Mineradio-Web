@@ -2755,11 +2755,13 @@ var GD_PUBLIC_API = 'https://music-api-hk.gdstudio.xyz/api.php';
 var AUDIUS_API = 'https://discoveryprovider.audius.co/v1/tracks/search';
 var ITUNES_SEARCH_API = 'https://itunes.apple.com/search';
 var LRCLIB_SEARCH_API = 'https://lrclib.net/api/search';
+var KUGOU_SHARE_RE = /(?:https?:\/\/(?:t1|m|m3ws|www)\.kugou\.com\/[^\s"'<>]*?(?:gcid_[a-z0-9]+|src_cid=[a-z0-9]+)[^\s"'<>]*|gcid_[a-z0-9]+)/i;
 var ITUNES_HOME_PREVIEW_QUERIES = ['飞机场的10:30 陶喆', '似曾相识 陶喆', '千言万语 陶喆', '陶喆'];
 var homePreviewSongs = [];
 var homePreviewLoading = false;
 var homePreviewLoaded = false;
 var audioDirectMode = false;
+var lastAudioPlayError = null;
 var directPulseSeed = 0;
 var connectorState = { available: false, version: '', status: null, kugouStatus: null, qqStatus: null, checkedAt: 0 };
 var connectorRequestSeq = 0;
@@ -17738,6 +17740,9 @@ function versionAtLeast(version, minimum) {
 function connectorSupportsKugou() {
   return connectorState.available && versionAtLeast(connectorState.version, '0.2.0');
 }
+function connectorSupportsKugouSharedPlaylist() {
+  return connectorState.available && versionAtLeast(connectorState.version, '0.4.3');
+}
 function connectorSupportsNeteaseTabPlayback() {
   return connectorState.available && versionAtLeast(connectorState.version, '0.3.0');
 }
@@ -18506,6 +18511,45 @@ async function fetchConnectorNeteaseSearchResults(q) {
     return [];
   }
 }
+function looksLikeKugouShareInput(q) {
+  return KUGOU_SHARE_RE.test(String(q || ''));
+}
+async function importKugouSharedPlaylist(q, opts) {
+  opts = opts || {};
+  if (!connectorSupportsKugouSharedPlaylist()) {
+    showSourceFallbackNotice('需要更新 Mineradio Connector', '酷狗分享歌单导入需要 0.4.3 或更新版本的浏览器扩展。');
+    return false;
+  }
+  var requestSeq = ++searchRequestSeq;
+  playlist = [];
+  $results.innerHTML = '<div class="search-empty">正在读取酷狗分享歌单...</div>';
+  $results.classList.add('show');
+  try {
+    var res = await connectorRequest('kugou.sharedPlaylist', { text: q }, 18000);
+    if (requestSeq !== searchRequestSeq) return true;
+    var tracks = (Array.isArray(res.tracks) ? res.tracks : []).map(normalizeConnectorSong).filter(function(song){
+      return song.id && song.name;
+    });
+    if (!tracks.length) {
+      playlist = [];
+      $results.innerHTML = '<div class="search-empty">这个酷狗分享歌单暂时没有可读取的歌曲</div>';
+      return true;
+    }
+    searchLastResultQuery = 'kugou-share:' + q;
+    playlist = tracks;
+    renderSongSearchResults(tracks);
+    var pl = res.playlist || {};
+    showSourceFallbackNotice('酷狗歌单已导入', (pl.name || '分享歌单') + ' · ' + tracks.length + ' 首。点击歌曲即可播放，失败时会自动换源。');
+    if (opts.autoPlayFirst) playSearchResult(0);
+    return true;
+  } catch (err) {
+    if (requestSeq !== searchRequestSeq) return true;
+    console.warn('[KugouSharedPlaylist]', err);
+    playlist = [];
+    $results.innerHTML = '<div class="search-empty">' + escHtml(err && err.message || '酷狗分享歌单读取失败') + '</div>';
+    return true;
+  }
+}
 async function fetchConnectorPlayback(song) {
   var provider = songProviderKey(song);
   if (!connectorState.available) {
@@ -18702,6 +18746,10 @@ async function doSearch(q, opts) {
   }
   if (searchMode === 'podcast') {
     doPodcastSearch(q);
+    return;
+  }
+  if (looksLikeKugouShareInput(q)) {
+    await importKugouSharedPlaylist(q, opts);
     return;
   }
   var requestSeq = ++searchRequestSeq;
@@ -19698,7 +19746,12 @@ async function playQueueAt(idx, opts) {
       clearAudioFadeTimers();
       audio.pause();
     }
-    audio.crossOrigin = (isPublicPlayback || isConnectorPlayback) ? '' : 'anonymous';
+    if (isPublicPlayback || isConnectorPlayback) {
+      try { audio.removeAttribute('crossorigin'); } catch (e) {}
+      try { audio.crossOrigin = null; } catch (e) {}
+    } else {
+      audio.crossOrigin = 'anonymous';
+    }
     bindPlaybackProgressEvents(audio);
     applyVolumeToAudio();
     var proxyAudioUrl = (isPublicPlayback || isConnectorPlayback) ? data.url : mediaDirectUrl('/api/audio?url=' + encodeURIComponent(data.url));
@@ -19795,7 +19848,10 @@ async function playQueueAt(idx, opts) {
     var playbackStarted = await playAudio({ silent: isQQPlayback });
     if (!playbackStarted) {
       if (isQQPlayback && await retryQQPlaybackWithCompatibleQuality(song, idx, token, opts, data, requestedQuality)) return;
-      if (await tryAutoPlaybackFallback(song, { reason: 'play_start_failed', message: '播放启动失败' }, idx, token, opts)) return;
+      if (await tryAutoPlaybackFallback(song, {
+        reason: 'play_start_failed',
+        message: lastAudioPlayError && (lastAudioPlayError.message || lastAudioPlayError.name) || '播放启动失败'
+      }, idx, token, opts)) return;
       if (opts.autoSkipUnavailable && playQueue.length > 1) {
         skipFailedQueueItem(idx, token, '当前歌曲播放启动失败，正在尝试歌单下一首。', { autoSkipUnavailable: true });
         return;
@@ -19847,6 +19903,7 @@ async function playQueueAt(idx, opts) {
 }
 async function attemptAudioPlay(opts) {
   opts = opts || {};
+  lastAudioPlayError = null;
   try {
       if (!audio) return false;
       if (!audioDirectMode && !audioReady) initAudio();
@@ -19868,12 +19925,18 @@ async function attemptAudioPlay(opts) {
     hideLoading();
     return true;
   } catch (err) {
+    lastAudioPlayError = err;
     console.warn('Audio play blocked:', err && (err.message || err));
     restorePlaybackGain();
     playing = false; setPlayIcon(false);
     hideLoading();
     forcePlaybackControlsInteractive();
-    if (!opts.silent) showToast(opts.manual ? '播放启动失败, 请重新选择歌曲' : '播放被系统拦截, 请点击播放按钮');
+    if (!opts.silent) {
+      var errName = String(err && err.name || '');
+      var errMsg = String(err && err.message || '');
+      var likelyGestureBlock = /NotAllowedError|play\(\) failed because the user didn't interact|user gesture|not allowed/i.test(errName + ' ' + errMsg);
+      showToast(opts.manual || !likelyGestureBlock ? '播放启动失败, 请重新选择歌曲' : '播放被系统拦截, 请点击播放按钮');
+    }
     return false;
   }
 }

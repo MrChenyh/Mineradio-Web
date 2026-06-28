@@ -2,6 +2,8 @@
 
 const NETEASE_ORIGIN = 'https://music.163.com';
 const KUGOU_ORIGIN = 'https://www.kugou.com';
+const KUGOU_MOBILE_ORIGIN = 'https://m.kugou.com';
+const KUGOU_MOBILE_ALT_ORIGIN = 'https://m3ws.kugou.com';
 const QQ_ORIGIN = 'https://y.qq.com';
 const QQ_MUSICU_URL = 'https://u.y.qq.com/cgi-bin/musicu.fcg';
 const QQ_SMARTBOX_URL = 'https://c.y.qq.com/splcloud/fcgi-bin/smartbox_new.fcg';
@@ -9,6 +11,7 @@ const KUGOU_SIGN_SECRET = 'NVPh5oo715z5DIWAeQlhMDsWXXQV4hwt';
 const NETEASE_DEFAULT_LEVEL = 'standard';
 const NETEASE_AUDIO_RULE_ID = 163001;
 const QQ_AUDIO_RULE_IDS = [163002, 163003];
+const KUGOU_MOBILE_RULE_IDS = [163004, 163005];
 const QQ_QUALITY_CANDIDATE_TEMPLATES = [
   { prefix: 'M800', ext: '.mp3', level: 'exhigh', label: 'QQ 320k' },
   { prefix: 'M500', ext: '.mp3', level: 'standard', label: 'QQ 128k' },
@@ -17,6 +20,7 @@ const QQ_QUALITY_CANDIDATE_TEMPLATES = [
 const NETEASE_HOME_PLAYLIST_LIMIT = 50;
 const NETEASE_HOME_PLAYLIST_RENDER_LIMIT = 48;
 const NETEASE_PLAYLIST_TRACK_LIMIT = 240;
+const KUGOU_SHARED_PLAYLIST_TRACK_LIMIT = 500;
 
 function jsonResponse(requestId, data) {
   return Object.assign({ requestId, ok: true }, data || {});
@@ -81,6 +85,49 @@ function installAudioHeaderRules() {
   }, () => {
     if (chrome.runtime.lastError) {
       console.warn('[Mineradio Connector] failed to install audio header rules', chrome.runtime.lastError.message);
+    }
+  });
+}
+
+function installKugouMobileHeaderRules() {
+  if (!chrome.declarativeNetRequest || !chrome.declarativeNetRequest.updateDynamicRules) return;
+  chrome.declarativeNetRequest.updateDynamicRules({
+    removeRuleIds: KUGOU_MOBILE_RULE_IDS,
+    addRules: [
+      {
+        id: KUGOU_MOBILE_RULE_IDS[0],
+        priority: 1,
+        action: {
+          type: 'modifyHeaders',
+          requestHeaders: [
+            { header: 'User-Agent', operation: 'set', value: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1' },
+            { header: 'Referer', operation: 'set', value: KUGOU_MOBILE_ORIGIN + '/' }
+          ]
+        },
+        condition: {
+          urlFilter: '||m.kugou.com/songlist/',
+          resourceTypes: ['xmlhttprequest']
+        }
+      },
+      {
+        id: KUGOU_MOBILE_RULE_IDS[1],
+        priority: 1,
+        action: {
+          type: 'modifyHeaders',
+          requestHeaders: [
+            { header: 'User-Agent', operation: 'set', value: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1' },
+            { header: 'Referer', operation: 'set', value: KUGOU_MOBILE_ALT_ORIGIN + '/' }
+          ]
+        },
+        condition: {
+          urlFilter: '||m3ws.kugou.com/songlist/',
+          resourceTypes: ['xmlhttprequest']
+        }
+      }
+    ]
+  }, () => {
+    if (chrome.runtime.lastError) {
+      console.warn('[Mineradio Connector] failed to install Kugou mobile header rules', chrome.runtime.lastError.message);
     }
   });
 }
@@ -714,6 +761,164 @@ function normalizeKugouSong(song) {
       failProcess: song.FailProcess
     }
   };
+}
+
+function parseKugouShareInput(value) {
+  const raw = String(value || '').trim();
+  const urlMatch = raw.match(/https?:\/\/[^\s"'<>]+/i);
+  const urlText = urlMatch ? urlMatch[0].replace(/[，。、“”‘’）)\]]+$/g, '') : raw;
+  let parsed = null;
+  try { parsed = new URL(urlText); } catch (err) {}
+  const source = parsed ? parsed.toString() : raw;
+  const gcidMatch = source.match(/gcid_([a-z0-9]+)/i) || source.match(/[?&](?:src_cid|global_collection_id)=([a-z0-9]+)/i);
+  const uid = parsed ? (parsed.searchParams.get('uid') || '') : ((raw.match(/[?&]uid=(\d+)/) || [])[1] || '');
+  const cover = parsed ? (parsed.searchParams.get('cover') || '') : '';
+  const titleMatch = raw.match(/歌单[《"]([^》"]+)[》"]/);
+  return {
+    url: urlText,
+    gcid: gcidMatch ? gcidMatch[1] : '',
+    uid,
+    cover,
+    title: titleMatch ? titleMatch[1] : ''
+  };
+}
+
+function kugouMobileSonglistUrl(info) {
+  const gcid = String(info && info.gcid || '').replace(/^gcid_/i, '');
+  if (!gcid) return '';
+  const url = new URL('/songlist/gcid_' + gcid + '/', KUGOU_MOBILE_ORIGIN);
+  url.searchParams.set('iszlist', '1');
+  url.searchParams.set('src_cid', gcid);
+  if (info && info.uid) url.searchParams.set('uid', info.uid);
+  if (info && info.cover) url.searchParams.set('cover', info.cover);
+  url.searchParams.set('chl', 'weibo');
+  return url.toString();
+}
+
+function extractWindowOutputJson(html) {
+  const marker = 'window.$output';
+  const markerIndex = String(html || '').indexOf(marker);
+  if (markerIndex < 0) return null;
+  const equalsIndex = html.indexOf('=', markerIndex);
+  if (equalsIndex < 0) return null;
+  let index = equalsIndex + 1;
+  while (/\s/.test(html[index] || '')) index++;
+  if (html[index] !== '{') return null;
+  let depth = 0;
+  let inString = false;
+  let quote = '';
+  let escaped = false;
+  for (let i = index; i < html.length; i++) {
+    const ch = html[i];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (ch === '\\') escaped = true;
+      else if (ch === quote) inString = false;
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      inString = true;
+      quote = ch;
+      continue;
+    }
+    if (ch === '{') depth++;
+    else if (ch === '}') {
+      depth--;
+      if (depth === 0) return html.slice(index, i + 1);
+    }
+  }
+  return null;
+}
+
+function normalizeKugouSharedSong(song) {
+  song = song || {};
+  const nameText = stripHtml(song.name || song.songname || song.fileName || song.filename || '');
+  let artist = '';
+  let title = nameText;
+  const splitIndex = nameText.indexOf(' - ');
+  if (splitIndex > 0) {
+    artist = nameText.slice(0, splitIndex).trim();
+    title = nameText.slice(splitIndex + 3).trim();
+  }
+  if (!artist && Array.isArray(song.singerinfo)) artist = song.singerinfo.map(item => item && item.name).filter(Boolean).join(', ');
+  if (!artist) artist = song.singerName || song.author_name || '';
+  const cover = kugouCoverUrl(song.cover || song.imgUrl || song.Image || (song.trans_param && song.trans_param.union_cover) || '');
+  const id = song.mixsongid || song.add_mixsongid || song.EMixSongID || song.MixSongID || song.audio_id || song.hash || '';
+  return {
+    provider: 'kugou-extension',
+    source: 'kugou-extension',
+    type: 'kugou-extension',
+    id: String(id || ''),
+    mid: String(song.mixsongid || song.add_mixsongid || song.EMixSongID || song.MixSongID || ''),
+    hash: song.hash || song.FileHash || '',
+    albumId: String(song.album_id || song.AlbumID || song.req_albumid || ''),
+    name: title || nameText,
+    artist: stripHtml(artist),
+    album: stripHtml(song.remark || song.albumName || song.AlbumName || song.albuminfo && song.albuminfo.name || ''),
+    cover,
+    duration: Math.round((Number(song.timelen || song.timeLength || 0) || 0) / 1000),
+    fee: Number(song.feetype || song.pay_type || 0) ? 1 : 0,
+    playable: true,
+    playbackChecked: false,
+    playbackCode: 0,
+    raw: {
+      hash: song.hash || '',
+      mixSongId: song.mixsongid || song.add_mixsongid || '',
+      albumId: song.album_id || '',
+      privilege: song.privilege,
+      payType: song.pay_type || song.feetype
+    }
+  };
+}
+
+function normalizeKugouSharedPlaylist(data, fallbackInfo) {
+  const info = data && data.info || {};
+  const listInfo = info.listinfo || {};
+  const rawSongs = Array.isArray(info.songs) ? info.songs : [];
+  const tracks = rawSongs
+    .slice(0, KUGOU_SHARED_PLAYLIST_TRACK_LIMIT)
+    .map(normalizeKugouSharedSong)
+    .filter(song => song.id && song.name);
+  const cover = kugouCoverUrl(listInfo.pic || fallbackInfo.cover || '');
+  return {
+    provider: 'kugou-extension',
+    playlist: {
+      provider: 'kugou-extension',
+      source: 'kugou-extension',
+      type: 'playlist',
+      id: 'kugou:gcid_' + String(fallbackInfo.gcid || ''),
+      name: listInfo.name || fallbackInfo.title || '酷狗分享歌单',
+      cover,
+      trackCount: Number(listInfo.count || tracks.length) || tracks.length,
+      playCount: Number(listInfo.heat || 0) || 0,
+      creator: listInfo.list_create_username || fallbackInfo.uid || '',
+      tag: '酷狗分享'
+    },
+    tracks
+  };
+}
+
+async function kugouSharedPlaylist(payload) {
+  const info = parseKugouShareInput(payload && (payload.url || payload.text || payload.q || payload.input));
+  if (!info.gcid) throw new Error('未识别到酷狗歌单分享链接');
+  const mobileUrl = kugouMobileSonglistUrl(info);
+  const text = await fetchText(mobileUrl, {
+    credentials: 'include',
+    referrer: KUGOU_MOBILE_ORIGIN + '/',
+    headers: kugouHeaders({
+      Referer: KUGOU_MOBILE_ORIGIN + '/',
+      Origin: KUGOU_MOBILE_ORIGIN,
+      'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1'
+    })
+  });
+  const jsonText = extractWindowOutputJson(text);
+  if (!jsonText) throw new Error('酷狗分享页没有返回歌单数据');
+  let data = null;
+  try { data = JSON.parse(jsonText); }
+  catch (err) { throw new Error('酷狗分享歌单解析失败'); }
+  const result = normalizeKugouSharedPlaylist(data, info);
+  if (!result.tracks.length) throw new Error('酷狗分享歌单为空或暂不可读取');
+  return result;
 }
 
 
@@ -1451,6 +1656,7 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     if (action === 'netease.songUrl') return jsonResponse(requestId, await neteaseSongUrl(payload));
     if (action === 'kugou.status') return jsonResponse(requestId, { status: await kugouStatus() });
     if (action === 'kugou.search') return jsonResponse(requestId, await kugouSearch(payload));
+    if (action === 'kugou.sharedPlaylist') return jsonResponse(requestId, await kugouSharedPlaylist(payload));
     if (action === 'kugou.lyric') return jsonResponse(requestId, await kugouLyric(payload));
     if (action === 'kugou.songUrl') return jsonResponse(requestId, await kugouSongUrl(payload));
     if (action === 'qq.status') return jsonResponse(requestId, { status: await qqStatus() });
@@ -1466,3 +1672,4 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
 });
 
 installAudioHeaderRules();
+installKugouMobileHeaderRules();
