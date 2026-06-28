@@ -2764,7 +2764,7 @@ var homePreviewLoading = false;
 var homePreviewLoaded = false;
 var audioDirectMode = false;
 var directPulseSeed = 0;
-var connectorState = { available: false, version: '', status: null, checkedAt: 0 };
+var connectorState = { available: false, version: '', status: null, kugouStatus: null, checkedAt: 0 };
 var connectorRequestSeq = 0;
 var connectorPendingRequests = {};
 var FFT_SIZE = 2048;
@@ -17649,15 +17649,28 @@ function connectorRequest(action, payload, timeoutMs) {
     }, '*');
   });
 }
+function versionAtLeast(version, minimum) {
+  var a = String(version || '').split('.').map(function(part){ return parseInt(part, 10) || 0; });
+  var b = String(minimum || '').split('.').map(function(part){ return parseInt(part, 10) || 0; });
+  for (var i = 0; i < Math.max(a.length, b.length); i++) {
+    var ai = a[i] || 0;
+    var bi = b[i] || 0;
+    if (ai > bi) return true;
+    if (ai < bi) return false;
+  }
+  return true;
+}
+function connectorSupportsKugou() {
+  return connectorState.available && versionAtLeast(connectorState.version, '0.2.0');
+}
 async function tryRefreshConnectorStatus() {
   if (!connectorState.available) return null;
   try {
-    var results = await Promise.allSettled([
-      connectorRequest('netease.status', {}, 4500),
-      connectorRequest('kugou.status', {}, 4500)
-    ]);
+    var statusTasks = [connectorRequest('netease.status', {}, 4500)];
+    if (connectorSupportsKugou()) statusTasks.push(connectorRequest('kugou.status', {}, 4500));
+    var results = await Promise.allSettled(statusTasks);
     connectorState.status = results[0].status === 'fulfilled' ? (results[0].value.status || null) : null;
-    connectorState.kugouStatus = results[1].status === 'fulfilled' ? (results[1].value.status || null) : null;
+    connectorState.kugouStatus = results[1] && results[1].status === 'fulfilled' ? (results[1].value.status || null) : null;
     connectorState.checkedAt = Date.now();
     return connectorState.status || connectorState.kugouStatus;
   } catch (err) {
@@ -18335,7 +18348,7 @@ function normalizeConnectorSong(song) {
   });
 }
 async function fetchConnectorKugouSearchResults(q) {
-  if (!connectorState.available) return [];
+  if (!connectorSupportsKugou()) return [];
   try {
     var res = await connectorRequest('kugou.search', { q: q, limit: 10 }, 16000);
     return (Array.isArray(res.songs) ? res.songs : []).map(normalizeConnectorSong).filter(function(song){

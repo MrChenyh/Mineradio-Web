@@ -32,7 +32,11 @@ function refreshStatus() {
   });
   requestStatus('kugou.status', function (error, response) {
     if (error || !response || !response.ok) {
-      setStatus('kugou', 'warn', '酷狗状态读取失败', error ? error.message : (response && response.error || '未知错误'));
+      var message = error ? error.message : (response && response.error || '未知错误');
+      if (/unknown connector action/i.test(message)) {
+        message = '扩展后台仍是旧版，请在 edge://extensions 点“重新加载”';
+      }
+      setStatus('kugou', 'warn', '酷狗状态读取失败', message);
       return;
     }
     var status = response.status || {};
