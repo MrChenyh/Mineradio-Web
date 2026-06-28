@@ -2,14 +2,19 @@
 
 Optional Chrome/Edge Manifest V3 extension for Mineradio Web.
 
-It lets the web player ask the extension background worker to use the browser's NetEase Cloud Music web session for:
+It lets the web player ask the extension background worker to use browser music-site sessions for:
 
 - connection status
 - song search
 - lyrics
 - playback URL tests
 
-The extension does not send NetEase cookies to the web page.
+Currently tested:
+
+- NetEase Cloud Music (`music.163.com`)
+- Kugou (`www.kugou.com`)
+
+The extension does not send music-site cookies to the web page.
 
 ## Edge Install For Testing
 
@@ -27,4 +32,4 @@ npm run preview:web
 npm run test:edge-extension
 ```
 
-Then open `https://music.163.com/` in the same Edge test window and log in if needed.
+Then open `https://music.163.com/` or `https://www.kugou.com/` in the same Edge test window and log in if needed.

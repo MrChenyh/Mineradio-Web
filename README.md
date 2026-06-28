@@ -17,7 +17,12 @@ The browser UI keeps local-file playback, queueing, lyric fallback, covers, visu
 
 ## Browser Connector Prototype
 
-`extension/` contains a Chrome/Edge Manifest V3 prototype named **Mineradio Connector**. It is optional. When loaded, the web player can ask the extension to use the browser's NetEase Cloud Music web session for search, lyrics, and playback URL tests.
+`extension/` contains a Chrome/Edge Manifest V3 prototype named **Mineradio Connector**. It is optional. When loaded, the web player can ask the extension to use browser music-site sessions for search, lyrics, and playback URL tests.
+
+Currently tested connector sources:
+
+- NetEase Cloud Music web session: search, cover enrichment, lyrics, and playable URL probing.
+- Kugou web session: signed web search, cover/detail metadata, lyric text from the song page flow, and playable URL probing via the logged-in `songinfo` endpoint.
 
 Privacy boundary: the extension does not send music-site cookies to the page. It performs requests in the extension background worker and returns only status, song metadata, lyrics, and playback URL results.
 
@@ -29,7 +34,7 @@ npm run preview:web
 powershell -ExecutionPolicy Bypass -File scripts/open-edge-extension-test.ps1
 ```
 
-Then open `https://music.163.com/` in that Edge test window and log in if you want to test logged-in behavior. Refresh Mineradio Web; the search tab should show `试听源 + NE` when the connector is detected.
+Then open `https://music.163.com/` or `https://www.kugou.com/` in that Edge test window and log in if you want to test logged-in behavior. Refresh Mineradio Web; the search tab should show connector results such as `NE-X` or `KG-X` when the connector is detected.
 
 Manual install in your regular Edge:
 
@@ -75,6 +80,8 @@ Users should:
 - GD Music HK API: tested as browser-callable when the node is healthy, but it can return gateway errors; it remains experimental and is not required for the home previews.
 - Buguyy: search JSON exists, but it does not return CORS headers and its download endpoint rejects unsupported User-Agent formats, so a pure GitHub Pages page cannot call it directly.
 - tools.liumingye.cn: currently acts as a tools/navigation page, not a direct music API source for this app.
+- Kugou Connector: tested with a logged-in Kugou web session. The web search endpoint needs a signed request, and playback needs the logged-in `KuGoo` token from browser cookies; results are shown only after a playable URL is probed.
+- QQ Music / Apple Music / Qishui Music: not enabled yet. QQ Music web search/playback needs additional current-session request validation before it can be shown reliably; Apple Music's official API requires Apple developer/user tokens and does not expose raw full-track URLs for a normal `<audio>` player; Qishui Music has no verified browser-callable full-track web flow in this project yet.
 
 ## Upstream And License
 

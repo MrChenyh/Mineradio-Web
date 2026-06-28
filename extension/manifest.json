@@ -12,6 +12,12 @@
     "http://music.163.com/*",
     "https://*.music.126.net/*",
     "http://*.music.126.net/*",
+    "https://www.kugou.com/*",
+    "https://wwwapi.kugou.com/*",
+    "https://complexsearch.kugou.com/*",
+    "https://fxsong.kugou.com/*",
+    "https://webfs.kugou.com/*",
+    "https://*.kugou.com/*",
     "https://mrchenyh.github.io/*",
     "http://127.0.0.1/*",
     "http://localhost/*"
