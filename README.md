@@ -1,45 +1,46 @@
 # Mineradio Web
 
-Mineradio Web 是一个可以直接部署到 GitHub Pages 的视觉音乐播放器。
-
+Mineradio Web 是一个可以部署到 GitHub Pages 的视觉音乐播放器。
 在线页面：[https://mrchenyh.github.io/Mineradio-Web/](https://mrchenyh.github.io/Mineradio-Web/)
 
-当前版本默认支持本地歌曲播放、iTunes 30 秒试听、歌词兜底、队列、封面、可视化和主题效果。网页登录平台能力由浏览器扩展 **Mineradio Connector** 提供，不再使用独立本地后端。
+当前版本默认支持本地歌曲播放、歌曲试听推荐、歌词兜底、队列、封面、可视化和主题效果。网页登录平台能力由浏览器扩展 **Mineradio Connector** 提供，不再使用独立本地后端。
 
 ## 安装 Connector 插件
 
 插件适用于 Microsoft Edge 和 Google Chrome。
 
 1. 下载插件包：[mineradio-connector.zip](https://mrchenyh.github.io/Mineradio-Web/downloads/mineradio-connector.zip)。
-2. 解压到一个固定文件夹，例如 `D:\Apps\Mineradio Connector`。后续不要随手删除这个文件夹。
+2. 解压到一个固定文件夹，例如 `D:\Apps\Mineradio Connector`，后续不要删除这个文件夹。
 3. Edge 打开 `edge://extensions`，Chrome 打开 `chrome://extensions`。
 4. 打开右上角“开发人员模式”。
 5. 点击“加载解压缩的扩展”，选择刚刚解压出来的插件文件夹。
-6. 打开 [网易云音乐网页版](https://music.163.com/) 或 [酷狗音乐网页版](https://www.kugou.com/) 并登录。
+6. 打开 [网易云音乐网页版](https://music.163.com/)、[QQ 音乐网页版](https://y.qq.com/) 或 [酷狗音乐网页版](https://www.kugou.com/) 并登录。
 7. 打开或刷新 [Mineradio Web](https://mrchenyh.github.io/Mineradio-Web/)，搜索歌曲即可看到 Connector 音源结果。
 
-插件图标弹窗里有“打开播放器”“打开网易云”“打开酷狗”“刷新状态”按钮，方便确认网页是否已经检测到登录态。
+插件图标弹窗里有“打开播放器”“打开网易云”“打开 QQ 音乐”“打开酷狗”“刷新状态”按钮，方便确认网页是否已经检测到登录态。
 
 更新插件时，重新下载 zip，解压覆盖原文件夹，然后在扩展管理页点击该扩展的“重新加载”。
 
 ## 使用方式
 
-- 不安装插件：可以导入本地歌曲播放，也可以使用首页 iTunes 试听推荐。
-- 安装插件：可以尝试使用已登录的网易云、酷狗网页会话搜索、获取封面、歌词和可播放地址。
-- 当某个平台结果不可播放时，网页会尝试同名歌曲的其它 Connector 音源，最后用 iTunes 试听兜底。
+- 不安装插件：可以导入本地歌曲播放，也可以使用首页“歌曲试听推荐”。该推荐底层使用 iTunes preview，只提供 30 秒片段。
+- 安装插件：可以尝试使用已登录的网易云、QQ 音乐、酷狗网页登录态搜索、获取封面、歌词和可播放地址。
+- 当某个平台结果不可播放时，网页会尝试同名歌曲的其它 Connector 音源，最后用歌曲试听推荐兜底。
+- 首页会在检测到网易云网页登录态后，展示账号收藏歌单和每日推荐；QQ/酷狗的首页收藏入口会在接口稳定后再开启。
+- 本地歌曲可以使用完整的封面粒子律动和离线 beatmap；在线音源受浏览器跨域限制，会使用稳定的实时脉冲动效兜底。
 
 ## Tampermonkey 能否替代插件
 
 不建议把当前 Connector 改成 Tampermonkey 作为主方案。
 
-Tampermonkey 可以做页面按钮、跳转、简单同站请求等辅助能力，但它不能稳定替代浏览器扩展：
+Tampermonkey 可以做页面按钮、跳转、简单同站请求等辅助能力，但它不适合替代浏览器扩展：
 
-- 不能像扩展一样使用 `chrome.cookies` 安全读取指定音乐站登录态。
-- 不能使用 `declarativeNetRequest` 修改音乐媒体请求需要的 Referer、Origin 等头。
-- 不能提供常驻后台 Service Worker，跨标签页状态和请求转发不稳定。
+- 不能像扩展一样使用 `chrome.cookies` 读取指定音乐站登录态。
+- 不能稳定使用 `declarativeNetRequest` 修改音乐媒体请求需要的 `Referer`、`Origin` 等请求头。
+- 不能提供稳定的常驻后台和跨标签页请求转发。
 - GitHub Pages 页面仍会遇到跨域、媒体防盗链和浏览器安全限制。
 
-所以 v1 保留 Manifest V3 插件方案。后续可以额外做一个 Tampermonkey 辅助脚本，用来快速打开播放器、提示登录状态或在音乐站页面内复制歌曲信息，但它不适合作为完整音源连接层。
+后续可以额外做一个 Tampermonkey 辅助脚本，用来快速打开播放器、提示登录状态或在音乐站页面内复制歌曲信息，但它不适合作为完整音源连接层。
 
 ## 本地开发
 
@@ -70,16 +71,17 @@ scripts/package-extension.js  打包插件 zip
 
 ## 已测试音源
 
-- iTunes Search API：默认首页试听和播放兜底，只提供 30 秒 preview。
+- 歌曲试听推荐：默认首页试听和播放兜底，底层使用 iTunes Search API，只提供 30 秒 preview。
 - LRCLIB：可从浏览器直接请求的歌词兜底。
-- 网易云 Connector：基于 `music.163.com` 网页登录态测试搜索、封面、歌词和播放地址探测。
+- 网易云 Connector：基于 `music.163.com` 网页登录态测试搜索、首页推荐、封面、歌词和播放地址探测。
+- QQ 音乐 Connector：基于 `y.qq.com` 网页登录态测试搜索、封面、歌词和播放地址探测。
 - 酷狗 Connector：基于 `www.kugou.com` 网页登录态测试搜索、封面、歌词和播放地址探测。
 
-QQ 音乐、Apple Music、汽水音乐暂未作为可用源开启。QQ 音乐网页播放还需要更稳定的当前会话校验；Apple Music 官方接口不向普通网页播放器暴露完整音频 URL；汽水音乐目前没有在本项目中验证出稳定的浏览器可调用完整播放链路。
+Apple Music、汽水音乐等渠道正在加入中；只有能稳定搜索并获取播放内容后才会进入播放器。
 
 ## 隐私说明
 
-Connector 不会把音乐站 Cookie 直接发送给 Mineradio Web 页面。扩展在后台请求音乐站接口，返回给页面的是连接状态、歌曲元数据、歌词和播放地址探测结果。
+Connector 不会把音乐站 Cookie 原文发送给 Mineradio Web 页面。扩展在后台请求音乐站接口，返回给页面的是连接状态、歌曲元数据、歌词和播放地址探测结果。
 
 ## 来源与授权
 

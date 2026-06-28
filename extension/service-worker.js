@@ -2,9 +2,18 @@
 
 const NETEASE_ORIGIN = 'https://music.163.com';
 const KUGOU_ORIGIN = 'https://www.kugou.com';
+const QQ_ORIGIN = 'https://y.qq.com';
+const QQ_MUSICU_URL = 'https://u.y.qq.com/cgi-bin/musicu.fcg';
+const QQ_SMARTBOX_URL = 'https://c.y.qq.com/splcloud/fcgi-bin/smartbox_new.fcg';
 const KUGOU_SIGN_SECRET = 'NVPh5oo715z5DIWAeQlhMDsWXXQV4hwt';
 const NETEASE_DEFAULT_LEVEL = 'standard';
 const NETEASE_AUDIO_RULE_ID = 163001;
+const QQ_AUDIO_RULE_IDS = [163002, 163003];
+const QQ_QUALITY_CANDIDATE_TEMPLATES = [
+  { prefix: 'M800', ext: '.mp3', level: 'exhigh', label: 'QQ 320k' },
+  { prefix: 'M500', ext: '.mp3', level: 'standard', label: 'QQ 128k' },
+  { prefix: 'C400', ext: '.m4a', level: 'aac', label: 'QQ AAC' }
+];
 
 function jsonResponse(requestId, data) {
   return Object.assign({ requestId, ok: true }, data || {});
@@ -15,28 +24,60 @@ function errorResponse(requestId, err) {
   return { requestId, ok: false, error: message };
 }
 
-function installNeteaseAudioHeaderRule() {
+function installAudioHeaderRules() {
   if (!chrome.declarativeNetRequest || !chrome.declarativeNetRequest.updateDynamicRules) return;
   chrome.declarativeNetRequest.updateDynamicRules({
-    removeRuleIds: [NETEASE_AUDIO_RULE_ID],
-    addRules: [{
-      id: NETEASE_AUDIO_RULE_ID,
-      priority: 1,
-      action: {
-        type: 'modifyHeaders',
-        requestHeaders: [
-          { header: 'Referer', operation: 'set', value: NETEASE_ORIGIN + '/' },
-          { header: 'Origin', operation: 'remove' }
-        ]
+    removeRuleIds: [NETEASE_AUDIO_RULE_ID].concat(QQ_AUDIO_RULE_IDS),
+    addRules: [
+      {
+        id: NETEASE_AUDIO_RULE_ID,
+        priority: 1,
+        action: {
+          type: 'modifyHeaders',
+          requestHeaders: [
+            { header: 'Referer', operation: 'set', value: NETEASE_ORIGIN + '/' },
+            { header: 'Origin', operation: 'remove' }
+          ]
+        },
+        condition: {
+          urlFilter: '||music.126.net/',
+          resourceTypes: ['media', 'xmlhttprequest']
+        }
       },
-      condition: {
-        urlFilter: '||music.126.net/',
-        resourceTypes: ['media', 'xmlhttprequest']
+      {
+        id: QQ_AUDIO_RULE_IDS[0],
+        priority: 1,
+        action: {
+          type: 'modifyHeaders',
+          requestHeaders: [
+            { header: 'Referer', operation: 'set', value: QQ_ORIGIN + '/' },
+            { header: 'Origin', operation: 'remove' }
+          ]
+        },
+        condition: {
+          urlFilter: '||qqmusic.qq.com/',
+          resourceTypes: ['media', 'xmlhttprequest']
+        }
+      },
+      {
+        id: QQ_AUDIO_RULE_IDS[1],
+        priority: 1,
+        action: {
+          type: 'modifyHeaders',
+          requestHeaders: [
+            { header: 'Referer', operation: 'set', value: QQ_ORIGIN + '/' },
+            { header: 'Origin', operation: 'remove' }
+          ]
+        },
+        condition: {
+          urlFilter: '||qqmusic.tc.qq.com/',
+          resourceTypes: ['media', 'xmlhttprequest']
+        }
       }
-    }]
+    ]
   }, () => {
     if (chrome.runtime.lastError) {
-      console.warn('[Mineradio Connector] failed to install NetEase audio header rule', chrome.runtime.lastError.message);
+      console.warn('[Mineradio Connector] failed to install audio header rules', chrome.runtime.lastError.message);
     }
   });
 }
@@ -47,13 +88,21 @@ function neteaseHeaders(extra) {
   }, extra || {});
 }
 
+function headersForUrl(url, extra) {
+  let host = '';
+  try { host = new URL(url).hostname.toLowerCase(); } catch (err) {}
+  if (host.includes('kugou.com')) return kugouHeaders(extra);
+  if (host.includes('qq.com') || host.includes('qpic.cn') || host.includes('gtimg.cn') || host.includes('qlogo.cn')) return qqHeaders(extra);
+  return neteaseHeaders(extra);
+}
+
 async function fetchText(url, options) {
   options = options || {};
   const res = await fetch(url, Object.assign({
     credentials: 'include',
     cache: 'no-store',
     referrer: options.referrer || NETEASE_ORIGIN + '/',
-    headers: neteaseHeaders()
+    headers: headersForUrl(url)
   }, options || {}));
   const text = await res.text();
   if (!res.ok) throw new Error('HTTP ' + res.status + ': ' + text.slice(0, 120));
@@ -421,13 +470,86 @@ async function kugouFetchJson(url, options) {
 async function neteaseStatus() {
   const musicU = await chrome.cookies.get({ url: NETEASE_ORIGIN + '/', name: 'MUSIC_U' });
   const csrf = await chrome.cookies.get({ url: NETEASE_ORIGIN + '/', name: '__csrf' });
+  let profile = null;
+  if (musicU && musicU.value) {
+    try {
+      const data = await fetchJson(NETEASE_ORIGIN + '/api/nuser/account/get?t=' + Date.now());
+      profile = data && (data.profile || data.account || data.data && data.data.profile) || null;
+    } catch (err) {
+      console.warn('[Mineradio Connector] NetEase profile failed', err);
+    }
+  }
   return {
     provider: 'netease',
     loggedIn: !!(musicU && musicU.value),
     hasCsrf: !!(csrf && csrf.value),
-    nickname: '',
-    userId: ''
+    nickname: profile && (profile.nickname || profile.userName || profile.name) || '',
+    userId: profile && (profile.userId || profile.id) || '',
+    avatar: profile && (profile.avatarUrl || profile.avatar) || ''
   };
+}
+
+function normalizeNeteasePlaylist(pl, tag) {
+  pl = pl || {};
+  const creator = pl.creator || pl.user || {};
+  const id = pl.id || pl.resourceId || pl.creativeId;
+  return {
+    provider: 'netease-extension',
+    source: 'netease-extension',
+    type: 'playlist',
+    id: id ? String(id) : '',
+    name: pl.name || pl.title || '',
+    cover: pl.picUrl || pl.coverImgUrl || pl.coverUrl || pl.uiElement && pl.uiElement.image && pl.uiElement.image.imageUrl || '',
+    trackCount: pl.trackCount || pl.songCount || pl.programCount || 0,
+    playCount: pl.playCount || pl.playcount || 0,
+    creator: creator.nickname || creator.name || '',
+    tag: tag || pl.alg || ''
+  };
+}
+
+async function neteaseHome() {
+  const status = await neteaseStatus();
+  if (!status.loggedIn) {
+    return { loggedIn: false, user: null, dailySongs: [], playlists: [], podcasts: [], mode: 'starter', updatedAt: Date.now() };
+  }
+  const tasks = await Promise.allSettled([
+    fetchJson(NETEASE_ORIGIN + '/api/v3/discovery/recommend/songs?t=' + Date.now()),
+    fetchJson(NETEASE_ORIGIN + '/api/v1/discovery/recommend/resource?t=' + Date.now()),
+    status.userId ? fetchJson(NETEASE_ORIGIN + '/api/user/playlist?' + new URLSearchParams({ uid: status.userId, limit: '12', offset: '0', t: Date.now().toString() }).toString()) : Promise.resolve({ playlist: [] })
+  ]);
+  const dailyBody = tasks[0].status === 'fulfilled' ? tasks[0].value || {} : {};
+  const dailyRaw = dailyBody.data && (dailyBody.data.dailySongs || dailyBody.data.recommend) || dailyBody.recommend || [];
+  let dailySongs = (Array.isArray(dailyRaw) ? dailyRaw : []).map(normalizeSong).filter(song => song.id && song.name).slice(0, 12);
+  dailySongs = await enrichNeteaseSongs(dailySongs);
+  const recommendBody = tasks[1].status === 'fulfilled' ? tasks[1].value || {} : {};
+  const recommendPlaylists = (recommendBody.recommend || recommendBody.data || []).map(item => normalizeNeteasePlaylist(item, 'playlist')).filter(item => item.id && item.name);
+  const userBody = tasks[2].status === 'fulfilled' ? tasks[2].value || {} : {};
+  const userPlaylists = (userBody.playlist || userBody.data || []).map(item => normalizeNeteasePlaylist(item, 'playlist')).filter(item => item.id && item.name);
+  const seen = new Set();
+  const playlists = userPlaylists.concat(recommendPlaylists).filter(item => {
+    if (seen.has(item.id)) return false;
+    seen.add(item.id);
+    return true;
+  }).slice(0, 12);
+  return {
+    loggedIn: true,
+    user: { provider: 'netease', userId: status.userId || '', nickname: status.nickname || '', avatar: status.avatar || '' },
+    dailySongs,
+    playlists,
+    podcasts: [],
+    mode: 'connector',
+    updatedAt: Date.now()
+  };
+}
+
+async function neteasePlaylistTracks(payload) {
+  const id = String(payload && payload.id || '').trim();
+  if (!id) throw new Error('Missing playlist id');
+  const data = await fetchJson(NETEASE_ORIGIN + '/api/v6/playlist/detail?' + new URLSearchParams({ id, n: '1000', s: '8', t: Date.now().toString() }).toString());
+  const playlist = data && data.playlist || {};
+  let tracks = (playlist.tracks || []).map(normalizeSong).filter(song => song.id && song.name).slice(0, 80);
+  tracks = await enrichNeteaseSongs(tracks);
+  return { provider: 'netease-extension', playlist: normalizeNeteasePlaylist(playlist, 'playlist'), tracks };
 }
 
 async function neteaseSearch(payload) {
@@ -590,6 +712,478 @@ function normalizeKugouSong(song) {
   };
 }
 
+
+
+function parseCookieString(raw) {
+  const out = {};
+  String(raw || '').split(';').forEach(part => {
+    const index = part.indexOf('=');
+    const key = (index >= 0 ? part.slice(0, index) : part).trim();
+    if (!key) return;
+    out[key] = index >= 0 ? part.slice(index + 1).trim() : '';
+  });
+  return out;
+}
+
+function serializeCookieObject(obj) {
+  return Object.keys(obj || {})
+    .filter(key => obj[key] != null && String(obj[key]) !== '')
+    .map(key => key + '=' + String(obj[key]))
+    .join('; ');
+}
+
+function normalizeQQUin(raw) {
+  const digits = String(raw || '').replace(/\D/g, '');
+  return digits.replace(/^0+/, '') || digits;
+}
+
+function qqCookieUin(obj) {
+  obj = obj || {};
+  const raw = Number(obj.login_type) === 2 ? (obj.wxuin || obj.uin || obj.p_uin) : (obj.uin || obj.qqmusic_uin || obj.wxuin || obj.p_uin);
+  return normalizeQQUin(raw);
+}
+
+function qqCookieMusicKey(obj) {
+  obj = obj || {};
+  return obj.qm_keyst || obj.qqmusic_key || obj.music_key || obj.p_skey || obj.skey ||
+    obj.psrf_qqaccess_token || obj.psrf_qqrefresh_token || obj.wxrefresh_token || obj.wxskey || '';
+}
+
+function qqCookiePlaybackKey(obj) {
+  obj = obj || {};
+  return obj.qm_keyst || obj.qqmusic_key || obj.music_key || obj.wxskey || '';
+}
+
+function decodeQQCookieValue(value) {
+  try { return decodeURIComponent(String(value || '').replace(/\+/g, '%20')).trim(); }
+  catch (err) { return String(value || '').trim(); }
+}
+
+function qqCookieNickname(obj, uin) {
+  obj = obj || {};
+  uin = normalizeQQUin(uin || qqCookieUin(obj));
+  const padded = uin ? '0' + uin : '';
+  const keys = [uin && ('ptnick_' + uin), padded && ('ptnick_' + padded), 'ptnick', 'nick', 'nickname', 'qq_nickname'].filter(Boolean);
+  for (const key of keys) {
+    if (obj[key]) {
+      const nick = decodeQQCookieValue(obj[key]);
+      if (nick) return nick;
+    }
+  }
+  const ptnickKey = Object.keys(obj).find(key => /^ptnick_/i.test(key) && obj[key]);
+  return ptnickKey ? decodeQQCookieValue(obj[ptnickKey]) : '';
+}
+
+function qqCookieAvatar(obj, uin) {
+  obj = obj || {};
+  const direct = obj.qqmusic_avatar || obj.avatar || obj.avatarUrl || obj.headpic || '';
+  if (direct) return decodeQQCookieValue(direct);
+  uin = normalizeQQUin(uin || qqCookieUin(obj));
+  return uin ? 'https://q1.qlogo.cn/g?b=qq&nk=' + encodeURIComponent(uin) + '&s=100' : '';
+}
+
+async function qqCookieObjectFromBrowser() {
+  const urls = [QQ_ORIGIN + '/', 'https://u.y.qq.com/', 'https://c.y.qq.com/', 'https://i.y.qq.com/', 'https://qq.com/'];
+  const entries = [];
+  for (const url of urls) {
+    try {
+      const cookies = await chrome.cookies.getAll({ url });
+      entries.push(...cookies);
+    } catch (err) {}
+  }
+  const obj = {};
+  entries.forEach(cookie => {
+    if (!cookie || !cookie.name) return;
+    if (obj[cookie.name] == null || /qqmusic|qm_|uin|skey|token|ptnick/i.test(cookie.name)) obj[cookie.name] = cookie.value || '';
+  });
+  if (Number(obj.login_type) === 2 && obj.wxuin && !obj.uin) obj.uin = obj.wxuin;
+  if (!obj.uin && (obj.qqmusic_uin || obj.p_uin)) obj.uin = obj.qqmusic_uin || obj.p_uin;
+  if (obj.uin) obj.uin = normalizeQQUin(obj.uin);
+  return obj;
+}
+
+function qqHeaders(extra) {
+  return Object.assign({
+    Referer: QQ_ORIGIN + '/',
+    Origin: QQ_ORIGIN
+  }, extra || {});
+}
+
+async function qqFetchText(url, options) {
+  options = options || {};
+  const cookieObj = options.cookieObj || await qqCookieObjectFromBrowser();
+  const cookieHeader = serializeCookieObject(cookieObj);
+  const headers = qqHeaders(Object.assign({}, options.headers || {}, cookieHeader ? { Cookie: cookieHeader } : {}));
+  const res = await fetch(url, Object.assign({
+    credentials: 'include',
+    cache: 'no-store',
+    referrer: options.referrer || QQ_ORIGIN + '/',
+    headers
+  }, options, { headers }));
+  const body = await res.text();
+  if (!res.ok) throw new Error('HTTP ' + res.status + ': ' + body.slice(0, 120));
+  return body;
+}
+
+function parseJsonLoose(raw, source) {
+  const clean = String(raw || '').trim().replace(/^callback\d*\(/, '').replace(/\)$/, '');
+  try { return JSON.parse(clean); }
+  catch (err) { throw new Error('Invalid JSON from ' + source); }
+}
+
+async function qqMusicRequest(payload, opts) {
+  opts = opts || {};
+  const cookieObj = opts.cookieObj || await qqCookieObjectFromBrowser();
+  const body = JSON.stringify(payload || {});
+  const raw = await qqFetchText(QQ_MUSICU_URL, {
+    method: 'POST',
+    cookieObj,
+    headers: { 'Content-Type': 'application/json;charset=UTF-8' },
+    body
+  });
+  return parseJsonLoose(raw, 'QQ Music');
+}
+
+async function qqGetJSON(targetUrl, params, opts) {
+  opts = opts || {};
+  const url = new URL(targetUrl);
+  Object.keys(params || {}).forEach(key => {
+    if (params[key] != null) url.searchParams.set(key, String(params[key]));
+  });
+  const raw = await qqFetchText(url.toString(), opts);
+  return parseJsonLoose(raw, 'QQ Music');
+}
+
+function normalizeQQProfile(body, cookieObj) {
+  cookieObj = cookieObj || {};
+  const uin = qqCookieUin(cookieObj);
+  const data = body && (body.data || body.profile || body.creator || body.result) || {};
+  const creator = data.creator || data.user || data.profile || data || {};
+  const profileNick = creator.nick || creator.nickname || creator.name || creator.hostname || creator.title || '';
+  const profileAvatar = creator.headpic || creator.avatar || creator.avatarUrl || creator.logo || '';
+  const nick = profileNick || qqCookieNickname(cookieObj, uin) || '';
+  const avatar = profileAvatar || qqCookieAvatar(cookieObj, uin);
+  return {
+    provider: 'qq',
+    loggedIn: !!(uin && qqCookieMusicKey(cookieObj)),
+    userId: uin,
+    nickname: nick || (uin ? ('QQ ' + uin) : 'QQ Music'),
+    avatar,
+    hasCookie: !!Object.keys(cookieObj).length,
+    playbackKeyReady: !!qqCookiePlaybackKey(cookieObj)
+  };
+}
+
+async function qqStatus() {
+  const cookieObj = await qqCookieObjectFromBrowser();
+  const fallback = normalizeQQProfile(null, cookieObj);
+  if (!fallback.loggedIn) return fallback;
+  try {
+    const body = await qqGetJSON('https://c.y.qq.com/rsc/fcgi-bin/fcg_get_profile_homepage.fcg', {
+      cid: '205360838',
+      userid: fallback.userId,
+      reqfrom: '1',
+      g_tk: '5381',
+      loginUin: fallback.userId,
+      hostUin: '0',
+      format: 'json',
+      inCharset: 'utf8',
+      outCharset: 'utf-8',
+      notice: '0',
+      platform: 'yqq.json',
+      needNewCode: '0'
+    }, { cookieObj });
+    return normalizeQQProfile(body, cookieObj);
+  } catch (err) {
+    return Object.assign({}, fallback, { profileUnavailable: true });
+  }
+}
+
+function normalizeQQQualityPreference(value) {
+  const raw = String(value || '').toLowerCase().trim();
+  if (['exhigh', 'high', '320', '320k', 'hq', 'hires', 'lossless', 'flac'].includes(raw)) return 'exhigh';
+  if (['aac', 'm4a'].includes(raw)) return 'aac';
+  return 'standard';
+}
+
+function qqQualityCandidatesFrom(target) {
+  const normalized = normalizeQQQualityPreference(target);
+  let start = QQ_QUALITY_CANDIDATE_TEMPLATES.findIndex(item => item.level === normalized);
+  if (start < 0) start = 1;
+  return QQ_QUALITY_CANDIDATE_TEMPLATES.slice(start);
+}
+
+function qqAlbumCover(albumMid, size) {
+  if (!albumMid) return '';
+  const px = size || 300;
+  return 'https://y.qq.com/music/photo_new/T002R' + px + 'x' + px + 'M000' + albumMid + '.jpg?max_age=2592000';
+}
+
+function mapQQArtists(raw) {
+  return (Array.isArray(raw) ? raw : []).map(item => ({
+    id: item && item.id,
+    mid: item && item.mid,
+    name: item && (item.name || item.title) || ''
+  })).filter(item => item.name);
+}
+
+function mapQQSmartSong(item) {
+  item = item || {};
+  const mid = item.mid || item.songmid || item.id || '';
+  return {
+    provider: 'qq-extension',
+    source: 'qq-extension',
+    type: 'qq-extension',
+    id: mid,
+    qqId: item.id || item.docid || '',
+    mid,
+    songmid: mid,
+    name: item.name || item.title || '',
+    artist: item.singer || '',
+    artists: item.singer ? [{ name: item.singer }] : [],
+    album: '',
+    cover: '',
+    duration: 0,
+    fee: 0,
+    playable: false
+  };
+}
+
+function mapQQTrack(track, fallback) {
+  track = track || {};
+  fallback = fallback || {};
+  const album = track.album || {};
+  const artists = mapQQArtists(track.singer || track.singers || []);
+  const mid = track.mid || track.songmid || fallback.mid || fallback.songmid || '';
+  const albumMid = album.mid || album.pmid || track.albummid || fallback.albumMid || '';
+  return {
+    provider: 'qq-extension',
+    source: 'qq-extension',
+    type: 'qq-extension',
+    id: mid,
+    qqId: track.id || track.songid || fallback.qqId || fallback.id || '',
+    mid,
+    songmid: mid,
+    mediaMid: track.file && track.file.media_mid || track.strMediaMid || track.media_mid || fallback.mediaMid || '',
+    name: track.name || track.title || track.songname || fallback.name || '',
+    artist: artists.map(item => item.name).join(' / ') || fallback.artist || '',
+    artists: artists.length ? artists : (fallback.artists || []),
+    artistId: artists[0] && (artists[0].id || artists[0].mid),
+    artistMid: artists[0] && artists[0].mid,
+    album: album.name || album.title || track.albumname || fallback.album || '',
+    albumMid,
+    cover: qqAlbumCover(albumMid, 300) || fallback.cover || '',
+    duration: Number(track.interval || fallback.duration || 0) || 0,
+    fee: track.pay && Number(track.pay.pay_play) ? 1 : 0,
+    playable: false
+  };
+}
+
+async function qqSmartboxSearch(keywords, limit) {
+  const data = await qqGetJSON(QQ_SMARTBOX_URL, {
+    format: 'json',
+    key: keywords,
+    g_tk: '5381',
+    loginUin: '0',
+    hostUin: '0',
+    inCharset: 'utf8',
+    outCharset: 'utf-8',
+    notice: '0',
+    platform: 'yqq.json',
+    needNewCode: '0'
+  }, { cookieObj: {} });
+  const items = data && data.data && data.data.song && data.data.song.itemlist;
+  return (Array.isArray(items) ? items : []).slice(0, Math.max(1, Math.min(limit || 8, 12))).map(mapQQSmartSong);
+}
+
+async function qqSongDetail(mid, fallback) {
+  if (!mid) return fallback;
+  const json = await qqMusicRequest({
+    comm: { ct: 24, cv: 0 },
+    songinfo: {
+      module: 'music.pf_song_detail_svr',
+      method: 'get_song_detail_yqq',
+      param: { song_mid: mid }
+    }
+  }, { cookieObj: {} });
+  const data = json && json.songinfo && json.songinfo.data;
+  return mapQQTrack(data && data.track_info, fallback);
+}
+
+async function qqSongUrl(payload) {
+  const song = payload || {};
+  const songmid = String(song.mid || song.songmid || song.id || '').trim();
+  if (!songmid) return { provider: 'qq-extension', url: '', playable: false, reason: 'missing_mid', message: 'Missing QQ songmid' };
+  const cookieObj = await qqCookieObjectFromBrowser();
+  const uin = qqCookieUin(cookieObj) || '0';
+  const musicKey = qqCookieMusicKey(cookieObj);
+  const playbackKey = qqCookiePlaybackKey(cookieObj);
+  const mediaIds = [];
+  const mediaMid = String(song.mediaMid || song.media_mid || '').trim();
+  if (mediaMid) mediaIds.push(mediaMid);
+  if (!mediaIds.includes(songmid)) mediaIds.push(songmid);
+  const candidates = mediaIds.flatMap(mediaId => qqQualityCandidatesFrom(song.quality || song.level).map(item => Object.assign({}, item, { mediaId, filename: item.prefix + mediaId + item.ext })));
+  const filenames = candidates.map(item => item.filename);
+  const guid = String(10000000 + Math.floor(Math.random() * 90000000));
+  const param = {
+    guid,
+    songmid: filenames.length ? filenames.map(() => songmid) : [songmid],
+    songtype: filenames.length ? filenames.map(() => 0) : [0],
+    uin,
+    loginflag: 1,
+    platform: '20'
+  };
+  if (filenames.length) param.filename = filenames;
+  const comm = { uin, format: 'json', ct: musicKey ? 19 : 24, cv: 0 };
+  if (musicKey) comm.authst = musicKey;
+  const json = await qqMusicRequest({
+    comm,
+    req_0: { module: 'vkey.GetVkeyServer', method: 'CgiGetVkey', param }
+  }, { cookieObj });
+  const data = json && json.req_0 && json.req_0.data || {};
+  const infos = Array.isArray(data.midurlinfo) ? data.midurlinfo : [];
+  const info = infos.find(item => item && item.purl) || infos[0] || {};
+  if (info.purl) {
+    const sip = data.sip && data.sip[0] || 'https://ws.stream.qqmusic.qq.com/';
+    const fileMeta = candidates.find(item => item.filename === info.filename) || {};
+    return {
+      provider: 'qq-extension',
+      url: ensureHttpsAudioUrl(sip + info.purl),
+      trial: false,
+      playable: true,
+      level: fileMeta.level || 'standard',
+      quality: fileMeta.label || 'QQ Music',
+      filename: info.filename || ''
+    };
+  }
+  const code = info.result || info.code || info.errtype || 0;
+  const message = info.msg || info.tips || info.errmsg || (!musicKey ? 'QQ Music login is missing or this track needs permission' : 'QQ Music did not return a playable URL');
+  return {
+    provider: 'qq-extension',
+    url: '',
+    playable: false,
+    loggedIn: !!(uin && musicKey),
+    playbackKeyReady: !!(uin && playbackKey),
+    reason: !musicKey ? 'login_required' : 'url_unavailable',
+    message,
+    qqCode: code
+  };
+}
+
+async function enrichQQSongs(songs) {
+  const checked = [];
+  for (const song of songs.slice(0, 12)) {
+    try {
+      const playback = await qqSongUrl(song);
+      song.playbackChecked = true;
+      song.playable = !!playback.url;
+      song.playbackCode = playback.qqCode || 0;
+      if (playback.url) song.probedAudioUrl = playback.url;
+      if (playback.message) song.playbackMessage = playback.message;
+      checked.push(song);
+    } catch (err) {
+      song.playbackChecked = true;
+      song.playable = false;
+      song.playbackMessage = err && err.message || 'QQ Music did not return a playable URL';
+    }
+  }
+  return checked.filter(song => song.playable !== false);
+}
+
+async function qqSearch(payload) {
+  const q = String(payload && payload.q || '').trim();
+  const limit = Math.max(1, Math.min(20, Number(payload && payload.limit) || 8));
+  if (!q) return { songs: [] };
+  const base = await qqSmartboxSearch(q, limit);
+  const detailed = [];
+  for (const item of base) {
+    try { detailed.push(await qqSongDetail(item.mid, item)); }
+    catch (err) { detailed.push(item); }
+  }
+  const seen = new Set();
+  const songs = detailed.filter(song => {
+    const key = song && (song.mid || song.id || (song.name + '|' + song.artist));
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return !!(song && song.name);
+  });
+  return { songs: await enrichQQSongs(songs) };
+}
+
+function decodeHtmlEntities(value) {
+  return String(value || '')
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(parseInt(dec, 10)))
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+    .replace(/&nbsp;/g, ' ');
+}
+
+function decodeUtf8Binary(binary) {
+  try {
+    const bytes = new Uint8Array(Array.from(binary || '').map(ch => ch.charCodeAt(0)));
+    return new TextDecoder('utf-8').decode(bytes);
+  } catch (err) {
+    return binary || '';
+  }
+}
+
+function decodeQQLyricText(value) {
+  let raw = decodeHtmlEntities(String(value || '').trim());
+  if (!raw) return '';
+  const compact = raw.replace(/\s+/g, '');
+  const looksBase64 = compact.length >= 8 && compact.length % 4 === 0 && /^[A-Za-z0-9+/]+={0,2}$/.test(compact);
+  if (looksBase64 && !/^\s*\[/.test(raw)) {
+    try {
+      const decoded = decodeUtf8Binary(atob(compact)).replace(/^\uFEFF/, '');
+      if (decoded && (decoded.includes('[') || /[\u4e00-\u9fff]/.test(decoded))) raw = decoded;
+    } catch (err) {}
+  }
+  return decodeHtmlEntities(raw).replace(/\r\n/g, '\n').trim();
+}
+
+async function qqLyric(payload) {
+  const song = payload || {};
+  const songMID = String(song.mid || song.songmid || song.id || '').trim();
+  const songID = String(song.qqId || song.qqid || '').replace(/\D/g, '');
+  if (!songMID && !songID) return { provider: 'qq-extension', lyric: '' };
+  try {
+    const param = {};
+    if (songMID) param.songMID = songMID;
+    if (songID) param.songID = Number(songID);
+    const json = await qqMusicRequest({
+      comm: { ct: 24, cv: 0 },
+      lyric: { module: 'music.musichallSong.PlayLyricInfo', method: 'GetPlayLyricInfo', param }
+    });
+    const data = json && json.lyric && json.lyric.data;
+    const lyric = decodeQQLyricText(data && (data.lyric || data.qrc));
+    const tlyric = decodeQQLyricText(data && data.trans);
+    if (lyric) return { provider: 'qq-extension', lyric, tlyric };
+  } catch (err) {}
+  try {
+    const body = await qqGetJSON('https://c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_new.fcg', {
+      songmid: songMID,
+      songtype: '0',
+      format: 'json',
+      nobase64: '1',
+      g_tk: '5381',
+      loginUin: '0',
+      hostUin: '0',
+      inCharset: 'utf8',
+      outCharset: 'utf-8',
+      notice: '0',
+      platform: 'yqq.json',
+      needNewCode: '0'
+    }, { headers: { Referer: QQ_ORIGIN + '/portal/player.html' } });
+    return { provider: 'qq-extension', lyric: decodeQQLyricText(body && body.lyric), tlyric: decodeQQLyricText(body && (body.trans || body.tlyric)) };
+  } catch (err) {
+    return { provider: 'qq-extension', lyric: '' };
+  }
+}
+
 async function kugouStatus() {
   const ctx = await kugouContext();
   return {
@@ -724,6 +1318,8 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
   (async function () {
     if (action === 'ping') return jsonResponse(requestId, { version: chrome.runtime.getManifest().version });
     if (action === 'netease.status') return jsonResponse(requestId, { status: await neteaseStatus() });
+    if (action === 'netease.home') return jsonResponse(requestId, await neteaseHome(payload));
+    if (action === 'netease.playlistTracks') return jsonResponse(requestId, await neteasePlaylistTracks(payload));
     if (action === 'netease.search') return jsonResponse(requestId, await neteaseSearch(payload));
     if (action === 'netease.lyric') return jsonResponse(requestId, await neteaseLyric(payload));
     if (action === 'netease.songUrl') return jsonResponse(requestId, await neteaseSongUrl(payload));
@@ -731,6 +1327,10 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     if (action === 'kugou.search') return jsonResponse(requestId, await kugouSearch(payload));
     if (action === 'kugou.lyric') return jsonResponse(requestId, await kugouLyric(payload));
     if (action === 'kugou.songUrl') return jsonResponse(requestId, await kugouSongUrl(payload));
+    if (action === 'qq.status') return jsonResponse(requestId, { status: await qqStatus() });
+    if (action === 'qq.search') return jsonResponse(requestId, await qqSearch(payload));
+    if (action === 'qq.lyric') return jsonResponse(requestId, await qqLyric(payload));
+    if (action === 'qq.songUrl') return jsonResponse(requestId, await qqSongUrl(payload));
     throw new Error('Unknown connector action: ' + action);
   })().then(sendResponse).catch(function (err) {
     console.warn('[Mineradio Connector]', action, err);
@@ -739,4 +1339,4 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
   return true;
 });
 
-installNeteaseAudioHeaderRule();
+installAudioHeaderRules();
