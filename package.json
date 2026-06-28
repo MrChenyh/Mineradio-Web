@@ -4,16 +4,12 @@
   "private": true,
   "description": "Mineradio Web local-first visual music player.",
   "scripts": {
-    "bridge": "node bridge/server.js",
     "build:web": "node scripts/build-web.js",
     "preview:web": "node scripts/preview-web.js",
-    "package:bridge:win": "node scripts/package-bridge-win.js",
+    "package:extension": "node scripts/package-extension.js",
     "test:edge-extension": "powershell -ExecutionPolicy Bypass -File scripts/open-edge-extension-test.ps1",
-    "check": "node --check bridge/server.js && node --check bridge/start-bridge.js && node --check web/public/mineradio-web-adapter.js && node --check scripts/build-web.js && node --check scripts/preview-web.js && node --check scripts/package-bridge-win.js"
+    "check": "node --check scripts/build-web.js && node --check scripts/preview-web.js && node --check scripts/package-extension.js && node --check extension/service-worker.js && node --check extension/content-script.js && node --check extension/popup.js"
   },
-  "dependencies": {
-    "NeteaseCloudMusicApi": "^4.32.0",
-    "mpg123-decoder": "^1.0.3"
-  },
+  "dependencies": {},
   "devDependencies": {}
 }

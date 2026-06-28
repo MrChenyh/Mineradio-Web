@@ -1,26 +1,24 @@
 # NOTICE
 
-Mineradio 使用了以下第三方项目或服务。各项目版权归其原作者所有。
+Mineradio Web 使用了以下第三方项目、库或服务。各项目版权归其原作者所有。
 
-## Third-party Libraries
+## 第三方库
 
-- Electron
 - Three.js
 - GSAP
 - music-tempo
-- NeteaseCloudMusicApi
-- mpg123-decoder
 
-## Third-party Services
+## 第三方服务
 
-Mineradio 可能与网易云音乐、QQ 音乐等第三方音乐服务进行用户自有账号相关的本地客户端交互。
+- iTunes Search API：用于首页试听和试听兜底。
+- LRCLIB：用于可直接访问的歌词兜底。
+- 网易云音乐网页版：可通过用户浏览器中的 Connector 插件进行网页登录态请求测试。
+- 酷狗音乐网页版：可通过用户浏览器中的 Connector 插件进行网页登录态请求测试。
 
-Mineradio 不是任何音乐平台的官方客户端，也不隶属于网易云音乐、QQ 音乐或腾讯音乐娱乐集团。请用户自行遵守对应平台的服务协议、版权规则和会员权益规则。
+Mineradio Web 不是任何音乐平台的官方客户端，也不隶属于网易云音乐、QQ 音乐、腾讯音乐娱乐、酷狗音乐、Apple Music 或其它第三方音乐服务。用户应自行遵守对应平台的服务协议、版权规则和会员权益规则。
 
-## Original Design
+## 原始设计
 
-Mineradio 名称、MR Logo、界面视觉设计、启动动画方向、粒子视觉体验和电影镜头系统的产品表达属于作者原创设计。
+本项目基于 [XxHuberrr/Mineradio](https://github.com/XxHuberrr/Mineradio) 改造。Mineradio 名称、MR Logo、界面视觉设计、启动动画方向、粒子视觉体验和电影镜头系统的产品表达来自原项目。
 
-emily 作为 Mineradio 早期视觉底层想法与 `emily` 视觉预设改进方向的共创者和灵感来源之一，特此致谢。
-
-感谢小天才e宝、应春日、锋将军、軌跡、林中、骊、风痕、花椰菜🥦在早期体验、测试反馈和发布准备中的帮助。
+本仓库继续保留 GPL-3.0 授权、上游 README、隐私说明和安全说明。

@@ -9,7 +9,6 @@
 <script src="vendor/three.r128.min.js"></script>
 <script src="vendor/music-tempo.min.js"></script>
 <script src="vendor/gsap.min.js"></script>
-<script src="mineradio-web-adapter.js?v=20260627-cookie-bridge-pack"></script>
 <script>
 try {
   document.documentElement.classList.add(localStorage.getItem('mineradio-diy-player-mode-v1') === '1' ? 'diy-mode-preload' : 'simple-mode-preload');
@@ -135,17 +134,17 @@ body.idle-guide-dragging #canvas-container{cursor:grabbing}
 .splash-sub{font-size:10px;font-weight:600;letter-spacing:.22em;color:rgba(255,255,255,.34);text-transform:uppercase;opacity:0;animation:splash-sub-in 4200ms cubic-bezier(.22,1,.36,1) forwards}
 .splash-enter{margin-top:8px;font-size:11px;font-weight:700;letter-spacing:.24em;color:rgba(255,255,255,.62);text-transform:uppercase;opacity:0;transform:translateY(10px);text-shadow:0 0 18px rgba(244,210,138,.24),0 0 34px rgba(122,215,194,.12);transition:opacity 620ms cubic-bezier(.22,1,.36,1),transform 620ms cubic-bezier(.22,1,.36,1)}
 #splash.ready .splash-enter{opacity:1;transform:translateY(0);animation:splash-enter-pulse 1800ms ease-in-out infinite alternate}
-.splash-bridge{margin-top:6px;width:min(560px,calc(100vw - 36px));min-height:94px;padding:13px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:rgba(4,7,10,.54);box-shadow:0 18px 64px rgba(0,0,0,.38),inset 0 1px 0 rgba(255,255,255,.08);backdrop-filter:blur(18px) saturate(1.15);-webkit-backdrop-filter:blur(18px) saturate(1.15);opacity:0;transform:translateY(8px);animation:splash-sub-in 4200ms cubic-bezier(.22,1,.36,1) forwards;pointer-events:auto}
-.splash-bridge-row{display:flex;align-items:flex-start;gap:10px}
-.splash-bridge-dot{width:9px;height:9px;margin-top:6px;border-radius:50%;background:#ffce70;box-shadow:0 0 16px rgba(255,206,112,.72);flex:0 0 auto}
-.splash-bridge.ready .splash-bridge-dot{background:#8dffd6;box-shadow:0 0 16px rgba(141,255,214,.72)}
-.splash-bridge-title{font-size:13px;font-weight:800;color:rgba(255,255,255,.92);letter-spacing:.03em}
-.splash-bridge-text{margin-top:2px;font-size:11.5px;line-height:1.45;color:rgba(255,255,255,.55);letter-spacing:0}
-.splash-bridge-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
-.splash-bridge-actions a,.splash-bridge-actions button{height:34px;min-width:76px;padding:0 12px;border-radius:8px;border:1px solid rgba(255,255,255,.13);background:rgba(255,255,255,.055);color:rgba(255,255,255,.86);font:700 12px/1 var(--font-sans);text-decoration:none;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
-.splash-bridge-actions a.primary,.splash-bridge-actions button.primary{border-color:rgba(141,255,214,.36);background:rgba(141,255,214,.12);color:#fff}
-.splash-bridge-actions a:hover,.splash-bridge-actions button:hover{background:rgba(244,210,138,.13);border-color:rgba(244,210,138,.34)}
-body.web-shell:not(.bridge-enter-allowed) #splash.ready .splash-enter{opacity:.40;animation:none}
+.splash-connector{margin-top:6px;width:min(560px,calc(100vw - 36px));min-height:94px;padding:13px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:rgba(4,7,10,.54);box-shadow:0 18px 64px rgba(0,0,0,.38),inset 0 1px 0 rgba(255,255,255,.08);backdrop-filter:blur(18px) saturate(1.15);-webkit-backdrop-filter:blur(18px) saturate(1.15);opacity:0;transform:translateY(8px);animation:splash-sub-in 4200ms cubic-bezier(.22,1,.36,1) forwards;pointer-events:auto}
+.splash-connector-row{display:flex;align-items:flex-start;gap:10px}
+.splash-connector-dot{width:9px;height:9px;margin-top:6px;border-radius:50%;background:#ffce70;box-shadow:0 0 16px rgba(255,206,112,.72);flex:0 0 auto}
+.splash-connector.ready .splash-connector-dot{background:#8dffd6;box-shadow:0 0 16px rgba(141,255,214,.72)}
+.splash-connector-title{font-size:13px;font-weight:800;color:rgba(255,255,255,.92);letter-spacing:.03em}
+.splash-connector-text{margin-top:2px;font-size:11.5px;line-height:1.45;color:rgba(255,255,255,.55);letter-spacing:0}
+.splash-connector-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.splash-connector-actions a,.splash-connector-actions button{height:34px;min-width:76px;padding:0 12px;border-radius:8px;border:1px solid rgba(255,255,255,.13);background:rgba(255,255,255,.055);color:rgba(255,255,255,.86);font:700 12px/1 var(--font-sans);text-decoration:none;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+.splash-connector-actions a.primary,.splash-connector-actions button.primary{border-color:rgba(141,255,214,.36);background:rgba(141,255,214,.12);color:#fff}
+.splash-connector-actions a:hover,.splash-connector-actions button:hover{background:rgba(244,210,138,.13);border-color:rgba(244,210,138,.34)}
+body.web-shell:not(.connector-enter-allowed) #splash.ready .splash-enter{opacity:.40;animation:none}
 @keyframes splash-field-breathe{0%{opacity:.72;transform:scale(1)}100%{opacity:1;transform:scale(1.035)}}
 @keyframes splash-mine-in{0%{opacity:0;clip-path:inset(48% 0 49% 0);transform:translate(calc(-50% - 10px),-42%) skewX(-10deg) scaleX(1.08);letter-spacing:.055em}14%{opacity:.92;clip-path:inset(40% 0 42% 0);transform:translate(calc(-50% - 4px),-50%) skewX(-4deg) scaleX(1.04);letter-spacing:.014em}26%{opacity:1;clip-path:inset(0);transform:translate(-50%,-50%) skewX(0) scaleX(1);letter-spacing:-.040em}48%{opacity:1;transform:translate(-50%,-50%) scale(1)}67%{opacity:1;transform:translate(calc(-50% - clamp(66px,10.8vw,130px)),-50%) scale(.998);letter-spacing:-.055em}100%{opacity:1;transform:translate(calc(-50% - clamp(66px,10.8vw,130px)),-50%) scale(.998)}}
 @keyframes splash-radio-in{0%,32%{opacity:0;clip-path:inset(52% 0 44% 0);transform:translate(calc(-50% + clamp(78px,12vw,142px)),-50%) skewX(9deg) scaleX(1.06);background-position:0 0}48%{opacity:.88;clip-path:inset(34% 0 32% 0);transform:translate(calc(-50% + clamp(72px,11.5vw,138px)),-50%) skewX(3deg) scaleX(1.02);background-position:52% 0}66%{opacity:1;clip-path:inset(0);transform:translate(calc(-50% + clamp(70px,11.4vw,136px)),-50%) scale(1);background-position:76% 0}100%{opacity:1;transform:translate(calc(-50% + clamp(70px,11.4vw,136px)),-50%) scale(1);background-position:100% 0}}
@@ -214,9 +213,7 @@ body.empty-home-active.diy-mode #search-area:not(.has-results) #search-mode-tabs
 .tag-source.audius{color:#ead9ff;border-color:rgba(172,132,255,.32);background:rgba(172,132,255,.095)}
 .tag-source.kugou-extension{color:#ffd9a8;border-color:rgba(255,166,82,.34);background:rgba(255,166,82,.10)}
 .tag-source.local{color:#d5f5ff;border-color:rgba(157,184,207,.32);background:rgba(157,184,207,.095)}
-#splash-bridge,
-#bridge-status-banner,
-#bridge-mini-control,
+#splash-connector,
 #user-btn,
 #user-capsule-hide-btn,
 #login-modal,
@@ -1949,22 +1946,22 @@ html.control-glass-svg-ok #visual-guide-btn:hover{
     </div>
     <div class="splash-signal-line"></div>
     <div class="splash-sub">private visual radio</div>
-    <div id="splash-bridge" class="splash-bridge" aria-live="polite">
-      <div class="splash-bridge-row">
-        <span class="splash-bridge-dot" aria-hidden="true"></span>
+    <div id="splash-connector" class="splash-connector" aria-live="polite">
+      <div class="splash-connector-row">
+        <span class="splash-connector-dot" aria-hidden="true"></span>
         <div>
-          <div id="splash-bridge-title" class="splash-bridge-title">本地模式</div>
-          <div id="splash-bridge-text" class="splash-bridge-text">本地文件播放已可用，公共源搜索仅作为实验入口。</div>
+          <div id="splash-connector-title" class="splash-connector-title">&#x672c;&#x5730;&#x6a21;&#x5f0f;</div>
+          <div id="splash-connector-text" class="splash-connector-text">&#x5bfc;&#x5165;&#x672c;&#x5730;&#x6b4c;&#x66f2;&#x5373;&#x53ef;&#x64ad;&#x653e;&#xff1b;&#x5b89;&#x88c5; Connector &#x63d2;&#x4ef6;&#x540e;&#x53ef;&#x4f7f;&#x7528;&#x7f51;&#x6613;&#x4e91;&#x3001;&#x9177;&#x72d7;&#x7f51;&#x9875;&#x767b;&#x5f55;&#x6001;&#x3002;</div>
         </div>
       </div>
-      <div class="splash-bridge-actions">
-        <a id="splash-bridge-pair" class="primary" href="#" target="_blank" rel="noreferrer">本地模式</a>
-        <button id="splash-bridge-retry" type="button">刷新</button>
-        <a href="#" target="_blank" rel="noreferrer">公共源</a>
-        <button id="splash-offline-enter" type="button">进入</button>
+      <div class="splash-connector-actions">
+        <a id="splash-connector-pair" class="primary" href="downloads/mineradio-connector.zip" target="_blank" rel="noreferrer">&#x4e0b;&#x8f7d;&#x63d2;&#x4ef6;</a>
+        <button id="splash-connector-retry" type="button">&#x68c0;&#x67e5;&#x63d2;&#x4ef6;</button>
+        <a href="https://github.com/MrChenyh/Mineradio-Web#%E5%AE%89%E8%A3%85-connector-%E6%8F%92%E4%BB%B6" target="_blank" rel="noreferrer">&#x5b89;&#x88c5;&#x8bf4;&#x660e;</a>
+        <button id="splash-offline-enter" type="button">&#x8fdb;&#x5165;</button>
       </div>
     </div>
-    <div class="splash-enter" aria-hidden="true">点击进入</div>
+    <div class="splash-enter" aria-hidden="true">&#x70b9;&#x51fb;&#x8fdb;&#x5165;</div>
   </div>
 </div>
 
@@ -2795,7 +2792,6 @@ var neteaseWebLoginBusy = false;
 var qqWebLoginBusy = false;
 var qqManualCookieOpen = false;
 var neteaseManualCookieOpen = false;
-var webBridgePlatformStatusSynced = false;
 var loginStatusChecked = false, loginStatusCheckFailed = false;
 var qrPollTimer = null, qrKey = null;
 var volumeTween = null, trackSwitchToken = 0;
@@ -10410,7 +10406,7 @@ async function fetchBeatPrefetchAudioUrl(song) {
     ? await apiJson('/api/qq/song/url?mid=' + encodeURIComponent(song.mid || song.songmid || song.id || '') + '&mediaMid=' + encodeURIComponent(song.mediaMid || song.media_mid || '') + qualityParam)
     : await apiJson('/api/song/url?id=' + encodeURIComponent(song.id) + qualityParam);
   if (!data || !data.url || data.trial) return null;
-  return bridgeProxyUrl('/api/audio?url=' + encodeURIComponent(data.url));
+  return mediaDirectUrl('/api/audio?url=' + encodeURIComponent(data.url));
 }
 
 function scheduleQueueBeatPrefetch(fromIdx, delayMs, state) {
@@ -11275,7 +11271,7 @@ function schedulePodcastDjAnalysis(songKey, audioUrl, token, durationSec) {
 async function analyzePodcastDjIntroBeats(audioUrl, token, durationSec) {
   if (!/^https?:\/\//i.test(audioUrl || '')) return null;
   if (token !== djBeatMapToken || !djMode.active) return null;
-  var introResp = await fetch(bridgeProxyUrl('/api/podcast/dj-beatmap?url=' + encodeURIComponent(audioUrl) + '&duration=' + encodeURIComponent(durationSec || 0) + '&intro=180'));
+  var introResp = await fetch(mediaDirectUrl('/api/podcast/dj-beatmap?url=' + encodeURIComponent(audioUrl) + '&duration=' + encodeURIComponent(durationSec || 0) + '&intro=180'));
   if (token !== djBeatMapToken || !djMode.active) return null;
   var introData = await introResp.json().catch(function(){ return null; });
   if (introResp.ok && introData && introData.ok && introData.map && introData.map.cameraBeats && introData.map.cameraBeats.length >= 4) {
@@ -11663,7 +11659,7 @@ async function analyzePodcastDjBeats(audioUrl, token, durationSec) {
     var preferServerAnalysis = /^https?:\/\//i.test(audioUrl || '') && (durationSec <= 0 || durationSec > 3300);
     if (preferServerAnalysis) {
       showBeatChip('DJ 长播客后端锁拍...');
-      var serverResp = await fetch(bridgeProxyUrl('/api/podcast/dj-beatmap?url=' + encodeURIComponent(audioUrl) + '&duration=' + encodeURIComponent(durationSec)));
+      var serverResp = await fetch(mediaDirectUrl('/api/podcast/dj-beatmap?url=' + encodeURIComponent(audioUrl) + '&duration=' + encodeURIComponent(durationSec)));
       if (token !== djBeatMapToken || !djMode.active) { hideBeatChip(); return null; }
       var serverData = await serverResp.json().catch(function(){ return null; });
       if (serverResp.ok && serverData && serverData.ok && serverData.map) return serverData.map;
@@ -11671,7 +11667,7 @@ async function analyzePodcastDjBeats(audioUrl, token, durationSec) {
       hideBeatChip();
       if (durationSec <= 0 || durationSec > 3300) return null;
     }
-    var fetchAudioUrl = /^https?:\/\//i.test(audioUrl || '') ? bridgeProxyUrl('/api/audio?url=' + encodeURIComponent(audioUrl)) : audioUrl;
+    var fetchAudioUrl = /^https?:\/\//i.test(audioUrl || '') ? mediaDirectUrl('/api/audio?url=' + encodeURIComponent(audioUrl)) : audioUrl;
     var resp = await fetch(fetchAudioUrl);
     if (token !== djBeatMapToken || !djMode.active) { hideBeatChip(); return null; }
     var ab = await resp.arrayBuffer();
@@ -15184,11 +15180,6 @@ async function apiJson(url, opts) {
     timer = setTimeout(function(){ controller.abort(); }, timeoutMs);
   }
   try {
-    if (window.MineradioBridge && typeof window.MineradioBridge.authorizeFetch === 'function') {
-      var authorized = window.MineradioBridge.authorizeFetch(url, fetchOpts);
-      url = authorized.url;
-      fetchOpts = authorized.opts;
-    }
     var res = await fetch(url, fetchOpts);
     return res.json();
   } finally {
@@ -15196,11 +15187,7 @@ async function apiJson(url, opts) {
   }
 }
 function escHtml(s){ var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
-function bridgeProxyUrl(path) {
-  if (window.MineradioBridge && typeof window.MineradioBridge.proxyUrl === 'function') {
-    var proxied = window.MineradioBridge.proxyUrl(path);
-    if (proxied !== path) return proxied;
-  }
+function mediaDirectUrl(path) {
   var raw = String(path || '');
   if (LOCAL_FIRST_MODE && (raw.indexOf('/api/audio?') === 0 || raw.indexOf('/api/cover?') === 0)) {
     try {
@@ -15211,7 +15198,7 @@ function bridgeProxyUrl(path) {
   return path;
 }
 function isMineradioWebShell() {
-  return !!(window.MineradioBridge || (document.body && document.body.classList.contains('web-shell')));
+  return !!(document.body && document.body.classList.contains('web-shell'));
 }
 function normalizePlaybackQuality(value) {
   value = String(value || '').toLowerCase();
@@ -15381,7 +15368,7 @@ function coverProxySrc(url, cacheBust) {
   if (!url) return '';
   if (isInlineCoverSrc(url)) return url;
   if (!isProxyableCoverUrl(url)) return '';
-  return bridgeProxyUrl('/api/cover?url=' + encodeURIComponent(url) + (cacheBust ? '&v=' + Date.now() : ''));
+  return mediaDirectUrl('/api/cover?url=' + encodeURIComponent(url) + (cacheBust ? '&v=' + Date.now() : ''));
 }
 function coverUrlWithSize(url, size) {
   if (!url || isInlineCoverSrc(url) || !/^https?:\/\//i.test(url)) return url || '';
@@ -19560,7 +19547,7 @@ async function playQueueAt(idx, opts) {
     audio.crossOrigin = (isPublicPlayback || isConnectorPlayback) ? '' : 'anonymous';
     bindPlaybackProgressEvents(audio);
     applyVolumeToAudio();
-    var proxyAudioUrl = (isPublicPlayback || isConnectorPlayback) ? data.url : bridgeProxyUrl('/api/audio?url=' + encodeURIComponent(data.url));
+    var proxyAudioUrl = (isPublicPlayback || isConnectorPlayback) ? data.url : mediaDirectUrl('/api/audio?url=' + encodeURIComponent(data.url));
     audio.src = proxyAudioUrl;
     updatePlaybackProgressUi();
     audio.onended = function(){
@@ -24208,7 +24195,7 @@ async function openDownloadedUpdateInstaller(filePath) {
       showToast('安装包已打开');
       return;
     }
-    throw new Error('DESKTOP_BRIDGE_MISSING');
+    throw new Error('DESKTOP_SHELL_MISSING');
   } catch (e) {
     updatePreviewState.status = 'ready';
     syncUpdatePreviewStateClass();
@@ -24515,23 +24502,6 @@ async function refreshQQLoginStatus() {
     return qqLoginStatus;
   }
 }
-function syncPlatformStatusAfterBridgeReady(reason) {
-  if (LOCAL_FIRST_MODE) return;
-  if (!(window.MineradioBridge && typeof window.MineradioBridge.isEnterAllowed === 'function' && window.MineradioBridge.isEnterAllowed())) return;
-  if (webBridgePlatformStatusSynced && reason !== 'manual') return;
-  webBridgePlatformStatusSynced = true;
-  Promise.all([
-    refreshLoginStatus(true).catch(function(e){ console.warn('Netease status sync failed:', e); }),
-    refreshQQLoginStatus().catch(function(e){ console.warn('QQ status sync failed:', e); })
-  ]).then(function(){
-    renderUserBtn();
-    if (loginProvider === 'qq') updateLoginProviderUi();
-  });
-}
-window.addEventListener('mineradio-bridge-state', function(e){
-  var detail = e && e.detail || {};
-  if (detail.enterAllowed) syncPlatformStatusAfterBridgeReady('bridge');
-});
 function startQQLoginStatusAutoRefresh() {
   if (LOCAL_FIRST_MODE) return;
   if (qqLoginAutoRefreshTimer) clearInterval(qqLoginAutoRefreshTimer);
@@ -24622,14 +24592,14 @@ function updateLoginProviderUi() {
     : (neteaseAlreadyLogged ? '网易云音乐已登录' : (useNeteaseCookie ? '导入网易云会话' : '扫码登录' + meta.label));
   if (desc) desc.innerHTML = isQQ
     ? (qqAlreadyLogged
-      ? 'Bridge 已保存 <b>QQ 音乐</b> 会话，当前账号可用于 QQ 搜索、歌单和播放请求。'
+      ? 'Connector 已保存 <b>QQ 音乐</b> 会话，当前账号可用于 QQ 搜索、歌单和播放请求。'
       : (canOpenQQWeb
         ? '打开 <b>QQ 音乐官方网页登录窗口</b> 扫码，成功后会自动同步账号会话。'
-        : 'Web 版不能直接读取 y.qq.com 的浏览器 Cookie；请在 QQ 音乐网页版登录后，将 Cookie 粘贴到下方导入，Bridge 会保存在本机。'))
+        : 'Web 版不能直接读取 y.qq.com 的浏览器 Cookie；请在 QQ 音乐网页版登录后，将 Cookie 粘贴到下方导入，Connector 会保存在本机。'))
     : (neteaseAlreadyLogged
-      ? 'Bridge 已保存 <b>网易云音乐</b> 会话，当前账号可用于歌单、红心、每日推荐和播放请求。'
+      ? 'Connector 已保存 <b>网易云音乐</b> 会话，当前账号可用于歌单、红心、每日推荐和播放请求。'
       : (useNeteaseCookie
-      ? '网易云接口二维码容易触发 App 风控提示；Web 版改为从 music.163.com 登录后的 Cookie 导入，Bridge 会保存在本机。'
+      ? '网易云接口二维码容易触发 App 风控提示；Web 版改为从 music.163.com 登录后的 Cookie 导入，Connector 会保存在本机。'
       : (canOpenNeteaseWeb
       ? '打开 <b>网易云音乐官方网页登录窗口</b> 扫码，避开接口二维码风控；成功后会自动同步账号会话。'
       : '使用 <b>网易云音乐 App</b> 扫码，可同步歌单、红心与播客。')));
@@ -26740,9 +26710,9 @@ window.addEventListener('mousemove', function(e){
   var fabRect = fab ? fab.getBoundingClientRect() : { left:W, right:W, top:H, bottom:H };
   var inFxPanel = fpOn && ex >= fpRect.left - 24 && ex <= fpRect.right + 24 && ey >= fpRect.top - 24 && ey <= fpRect.bottom + 24;
   var inFxFab = ex >= fabRect.left - 18 && ex <= fabRect.right + 18 && ey >= fabRect.top - 18 && ey <= fabRect.bottom + 18;
-  var inFxBridge = fpOn && ex >= Math.min(fpRect.left, fabRect.left) - 18 && ex <= W && ey >= fpRect.bottom - 10 && ey <= fabRect.bottom + 18;
-  if (!diyPlayerMode) inFxPanel = inFxFab = inFxBridge = false;
-  if (inFxFab || inFxPanel || inFxBridge) setPeek(fp, true, 'fx');
+  var inFxHoverGap = fpOn && ex >= Math.min(fpRect.left, fabRect.left) - 18 && ex <= W && ey >= fpRect.bottom - 10 && ey <= fabRect.bottom + 18;
+  if (!diyPlayerMode) inFxPanel = inFxFab = inFxHoverGap = false;
+  if (inFxFab || inFxPanel || inFxHoverGap) setPeek(fp, true, 'fx');
   else if (fpOn) setPeek(fp, false, 'fx');
   // 歌单/队列 DOM 面板只在左侧明确停留时出现，避免和右侧 3D 架抢焦点
   var ppOn = pp.classList.contains('peek');
@@ -26798,55 +26768,52 @@ var reduceSplashMotion = false;
 var splashReadyToEnter = false;
 var splashOfflineAllowed = false;
 
-function splashBridgePairUrl() {
-  if (LOCAL_FIRST_MODE) return '';
-  if (window.MineradioBridge && typeof window.MineradioBridge.pairUrl === 'function') return window.MineradioBridge.pairUrl();
-  return 'http://127.0.0.1:37891/pair?return=' + encodeURIComponent(location.href.split('#')[0]);
+function splashConnectorDownloadUrl() {
+  return 'downloads/mineradio-connector.zip';
 }
-function splashBridgeCanEnter() {
-  if (LOCAL_FIRST_MODE) return true;
-  if (!(window.MineradioBridge && typeof window.MineradioBridge.isEnterAllowed === 'function')) return true;
-  return window.MineradioBridge.isEnterAllowed() || splashOfflineAllowed;
+function splashConnectorCanEnter() {
+  return true;
 }
-function updateSplashBridgeState(detail) {
-  var panel = document.getElementById('splash-bridge');
+function updateSplashConnectorState(detail) {
+  var panel = document.getElementById('splash-connector');
   if (!panel) return;
-  if (LOCAL_FIRST_MODE) {
-    panel.style.display = 'none';
-    document.body.classList.add('bridge-enter-allowed');
-    var localEnter = document.querySelector('.splash-enter');
-    if (localEnter) localEnter.textContent = '点击进入';
-    return;
-  }
-  var title = document.getElementById('splash-bridge-title');
-  var text = document.getElementById('splash-bridge-text');
-  var pair = document.getElementById('splash-bridge-pair');
-  var state = detail || (window.MineradioBridge && window.MineradioBridge.state) || {};
-  var hasBridge = !!state.connected;
-  var canEnter = !!(state.enterAllowed || splashOfflineAllowed);
-  panel.classList.toggle('ready', !!state.enterAllowed);
-  document.body.classList.toggle('bridge-enter-allowed', canEnter);
-  if (pair) pair.href = splashBridgePairUrl();
-  if (splashOfflineAllowed) {
-    if (title) title.textContent = '离线模式';
-    if (text) text.textContent = '当前只使用本地文件播放。公共源搜索为实验能力。';
-  } else if (state.enterAllowed) {
-    if (title) title.textContent = '本地模式';
-    if (text) text.textContent = '本地文件播放已可用。';
-  } else if (hasBridge) {
-    if (title) title.textContent = '本地模式';
-    if (text) text.textContent = '当前版本不需要本机服务。';
+  var title = document.getElementById('splash-connector-title');
+  var text = document.getElementById('splash-connector-text');
+  var pair = document.getElementById('splash-connector-pair');
+  var state = detail || connectorState || {};
+  var hasConnector = !!state.available;
+  panel.classList.toggle('ready', hasConnector);
+  document.body.classList.add('connector-enter-allowed');
+  if (pair) pair.href = splashConnectorDownloadUrl();
+  if (hasConnector) {
+    if (title) title.textContent = '\u0043onnector \u5df2\u8fde\u63a5';
+    if (text) text.textContent = '\u5df2\u68c0\u6d4b\u5230\u6d4f\u89c8\u5668\u63d2\u4ef6\uff0c\u53ef\u4f7f\u7528\u7f51\u6613\u4e91\u3001\u9177\u72d7\u7f51\u9875\u767b\u5f55\u6001\u641c\u7d22\u548c\u64ad\u653e\u3002';
   } else if (state.checking) {
-    if (title) title.textContent = '正在准备';
-    if (text) text.textContent = '正在准备播放器。';
+    if (title) title.textContent = '\u6b63\u5728\u68c0\u67e5\u63d2\u4ef6';
+    if (text) text.textContent = '\u672c\u5730\u6b4c\u66f2\u548c iTunes \u8bd5\u542c\u53ef\u76f4\u63a5\u4f7f\u7528\uff0c\u5728\u7ebf\u5e73\u53f0\u80fd\u529b\u9700\u8981 Connector \u63d2\u4ef6\u3002';
   } else {
-    if (title) title.textContent = '本地模式';
-    if (text) text.textContent = '本地文件播放已可用。';
+    if (title) title.textContent = '\u672c\u5730\u6a21\u5f0f';
+    if (text) text.textContent = '\u5bfc\u5165\u672c\u5730\u6b4c\u66f2\u5373\u53ef\u64ad\u653e\uff1b\u5b89\u88c5 Connector \u63d2\u4ef6\u540e\u53ef\u4f7f\u7528\u7f51\u6613\u4e91\u3001\u9177\u72d7\u7f51\u9875\u767b\u5f55\u6001\u3002';
   }
   var enter = document.querySelector('.splash-enter');
-  if (enter) enter.textContent = canEnter ? '点击进入' : '点击进入';
+  if (enter) enter.textContent = '\u70b9\u51fb\u8fdb\u5165';
 }
-
+function refreshSplashConnectorState() {
+  updateSplashConnectorState({ checking: true });
+  connectorRequest('ping', {}, 1600).then(function(res){
+    connectorState.available = true;
+    connectorState.version = res.version || connectorState.version || '';
+    connectorState.checkedAt = Date.now();
+    updateSearchModeTabs();
+    return tryRefreshConnectorStatus();
+  }).catch(function(){
+    connectorState.available = false;
+    connectorState.status = null;
+    connectorState.kugouStatus = null;
+  }).finally(function(){
+    updateSplashConnectorState(connectorState);
+  });
+}
 function splashClamp01(v) { return Math.max(0, Math.min(1, v)); }
 function splashSmoothstep(edge0, edge1, x) {
   var t = splashClamp01((x - edge0) / Math.max(0.0001, edge1 - edge0));
@@ -27419,10 +27386,11 @@ function markSplashReadyToEnter() {
   s.setAttribute('role', 'button');
   s.setAttribute('tabindex', '0');
   s.setAttribute('aria-label', '点击进入 Mineradio');
-  updateSplashBridgeState();
+  updateSplashConnectorState();
 }
 
 document.addEventListener('DOMContentLoaded', function(){
+  document.body.classList.add('web-shell', 'local-first-shell', 'connector-enter-allowed');
   var s = document.getElementById('splash');
   if (!s) return;
   markAppPerf('dom-content-loaded');
@@ -27433,30 +27401,23 @@ document.addEventListener('DOMContentLoaded', function(){
     if (!splashReadyToEnter) return;
     dismissSplash();
   }
-  var retry = document.getElementById('splash-bridge-retry');
+  var retry = document.getElementById('splash-connector-retry');
   if (retry) retry.addEventListener('click', function(e){
     e.preventDefault();
     e.stopPropagation();
-    updateSplashBridgeState({ checking: true });
-    if (window.MineradioBridge && typeof window.MineradioBridge.check === 'function') window.MineradioBridge.check(true);
+    refreshSplashConnectorState();
   });
   var offline = document.getElementById('splash-offline-enter');
   if (offline) offline.addEventListener('click', function(e){
     e.preventDefault();
     e.stopPropagation();
     splashOfflineAllowed = true;
-    updateSplashBridgeState();
+    updateSplashConnectorState();
     if (splashReadyToEnter) dismissSplash();
   });
-  var pair = document.getElementById('splash-bridge-pair');
+  var pair = document.getElementById('splash-connector-pair');
   if (pair) pair.addEventListener('click', function(e){ e.stopPropagation(); });
-  window.addEventListener('mineradio-bridge-state', function(e){
-    updateSplashBridgeState(e.detail);
-    if (splashReadyToEnter && splashBridgeCanEnter()) {
-      s.setAttribute('aria-label', '点击进入 Mineradio');
-    }
-  });
-  updateSplashBridgeState();
+  updateSplashConnectorState();
   s.addEventListener('click', requestSplashEnter);
   document.addEventListener('keydown', function(e){
     if (!document.body.classList.contains('splash-active')) return;

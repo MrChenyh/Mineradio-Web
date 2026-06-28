@@ -1,35 +1,25 @@
 # Mineradio Connector
 
-Optional Chrome/Edge Manifest V3 extension for Mineradio Web.
+Mineradio Connector 是给 Mineradio Web 使用的 Chrome/Edge Manifest V3 插件。
 
-It lets the web player ask the extension background worker to use browser music-site sessions for:
+它会在扩展后台使用浏览器里的音乐网站登录态，请求搜索、封面、歌词和播放地址探测结果。插件不会把 Cookie 原文发送给 Mineradio Web 页面。
 
-- connection status
-- song search
-- lyrics
-- playback URL tests
+## 安装
 
-Currently tested:
+1. 下载 `mineradio-connector.zip`。
+2. 解压到固定文件夹。
+3. Edge 打开 `edge://extensions`，Chrome 打开 `chrome://extensions`。
+4. 开启“开发人员模式”。
+5. 点击“加载解压缩的扩展”，选择解压后的文件夹。
+6. 打开或刷新 Mineradio Web。
 
-- NetEase Cloud Music (`music.163.com`)
-- Kugou (`www.kugou.com`)
+## 使用
 
-The extension does not send music-site cookies to the web page.
+- 插件弹窗可直接打开播放器、网易云和酷狗网页。
+- 先在网易云或酷狗网页版登录，再回到 Mineradio Web 搜索。
+- 如果更新了插件文件，需要在扩展管理页点“重新加载”。
 
-## Edge Install For Testing
+## 当前测试源
 
-1. Open `edge://extensions`.
-2. Enable Developer mode.
-3. Click **Load unpacked**.
-4. Select this `extension` folder.
-5. Open or refresh Mineradio Web.
-
-For an isolated test profile:
-
-```powershell
-npm run build:web
-npm run preview:web
-npm run test:edge-extension
-```
-
-Then open `https://music.163.com/` or `https://www.kugou.com/` in the same Edge test window and log in if needed.
+- 网易云音乐：`music.163.com`
+- 酷狗音乐：`www.kugou.com`
