@@ -198,6 +198,42 @@ function chromeExecuteScript(options) {
   });
 }
 
+function uniqueTabsById(tabs) {
+  const seen = new Set();
+  return (tabs || []).filter(tab => {
+    if (!tab || tab.id == null || seen.has(tab.id)) return false;
+    seen.add(tab.id);
+    return true;
+  });
+}
+
+function tabUrlMatchesOrigin(tab, origin) {
+  try {
+    const target = new URL(origin);
+    const url = new URL(String(tab && tab.url || ''));
+    return url.protocol === target.protocol && (url.hostname === target.hostname || url.hostname.endsWith('.' + target.hostname));
+  } catch (err) {
+    return false;
+  }
+}
+
+async function queryTabsForOrigins(origins) {
+  const all = [];
+  const list = Array.isArray(origins) ? origins : [origins];
+  for (const origin of list) {
+    try {
+      all.push(...await chromeTabsQuery({ url: [origin + '/*'] }));
+    } catch (err) {}
+  }
+  if (all.length) return uniqueTabsById(all);
+  try {
+    const tabs = await chromeTabsQuery({});
+    return uniqueTabsById(tabs.filter(tab => list.some(origin => tabUrlMatchesOrigin(tab, origin))));
+  } catch (err) {
+    return [];
+  }
+}
+
 async function neteaseFetchJsonInMusicTab(path, params, method) {
   try {
     const tabs = await chromeTabsQuery({ url: [NETEASE_ORIGIN + '/*', 'http://music.163.com/*'] });
@@ -988,16 +1024,26 @@ function qqTabInfoLooksLoggedIn(tab) {
   return /我的音乐|我喜欢|个人主页|profile|like\/song|profile\/create|profile\/buy|profile\/focus/i.test(title + ' ' + url);
 }
 
+async function qqMusicTabs() {
+  return queryTabsForOrigins([QQ_ORIGIN]);
+}
+
+function qqBestMusicTab(tabs) {
+  const list = Array.isArray(tabs) ? tabs : [];
+  const usableTabs = list.filter(item => item && item.id && !item.discarded);
+  return usableTabs.find(qqTabInfoLooksLoggedIn) || list.find(qqTabInfoLooksLoggedIn) || usableTabs[0] || list.find(item => item && item.id) || null;
+}
+
 async function qqVisibleTabSession() {
   try {
-    const tabs = await chromeTabsQuery({ url: [QQ_ORIGIN + '/*'] });
-    const usableTabs = (tabs || []).filter(item => item && item.id && !item.discarded);
-    const tab = usableTabs.find(qqTabInfoLooksLoggedIn) || (tabs || []).find(qqTabInfoLooksLoggedIn) || usableTabs[0] || (tabs || [])[0] || null;
+    const tabs = await qqMusicTabs();
+    const tab = qqBestMusicTab(tabs);
     return {
-      ready: !!(usableTabs.length || (tabs || []).length),
+      ready: !!(tabs || []).length,
       loggedIn: qqTabInfoLooksLoggedIn(tab),
       title: tab && tab.title || '',
-      url: tab && tab.url || ''
+      url: tab && tab.url || '',
+      tabCount: (tabs || []).length
     };
   } catch (err) {
     return { ready: false, loggedIn: false, error: err && err.message || String(err) };
@@ -1023,6 +1069,8 @@ function mergeQQVisibleTabStatus(profile, tabSession) {
   profile.musicTabReady = !!tabSession.ready;
   profile.visibleTabLoggedIn = !!tabSession.loggedIn;
   profile.visibleTabTitle = tabSession.title || '';
+  profile.visibleTabUrl = tabSession.url || '';
+  profile.visibleTabCount = tabSession.tabCount || 0;
   if (tabSession.loggedIn && !profile.loggedIn) {
     profile.loggedIn = true;
     profile.partialLogin = true;
@@ -1034,7 +1082,7 @@ function mergeQQVisibleTabStatus(profile, tabSession) {
 
 async function qqMusicTabReady() {
   try {
-    const tabs = await chromeTabsQuery({ url: [QQ_ORIGIN + '/*'] });
+    const tabs = await qqMusicTabs();
     return tabs.some(item => item && item.id && !item.discarded);
   } catch (err) {
     return false;
@@ -1043,8 +1091,8 @@ async function qqMusicTabReady() {
 
 async function qqTabLoginProbe() {
   try {
-    const tabs = await chromeTabsQuery({ url: [QQ_ORIGIN + '/*'] });
-    const tab = tabs.find(item => item && item.id && !item.discarded) || tabs.find(item => item && item.id);
+    const tabs = await qqMusicTabs();
+    const tab = qqBestMusicTab(tabs);
     if (!tab) return null;
     const results = await chromeExecuteScript({
       target: { tabId: tab.id },
@@ -1175,8 +1223,8 @@ function parseJsonLoose(raw, source) {
 
 async function qqFetchJsonInMusicTab(targetUrl, requestOptions) {
   try {
-    const tabs = await chromeTabsQuery({ url: [QQ_ORIGIN + '/*'] });
-    const tab = tabs.find(item => item && item.id && !item.discarded) || tabs.find(item => item && item.id);
+    const tabs = await qqMusicTabs();
+    const tab = qqBestMusicTab(tabs);
     if (!tab) return null;
     const results = await chromeExecuteScript({
       target: { tabId: tab.id },

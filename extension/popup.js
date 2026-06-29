@@ -49,13 +49,15 @@ function refreshQQStatus() {
     var cookieNames = Array.isArray(status.loginCookieNames) && status.loginCookieNames.length
       ? ' · Cookie: ' + status.loginCookieNames.join(', ')
       : ' · Cookie: ' + (status.cookieCount || 0);
+    var tabInfo = status.musicTabReady
+      ? ' · 标签页: ' + (status.visibleTabCount || 1)
+      : ' · 未找到 y.qq.com 标签页';
     if (status.loggedIn && status.playbackKeyReady) {
-      var tabText = status.musicTabReady ? 'y.qq.com 标签页可用' : '建议保持 y.qq.com 打开';
-      setStatus('qq', 'ok', 'QQ 音乐网页登录态已检测到', (status.nickname || status.userId || '已登录') + ' · ' + tabText + ' · 可尝试 QQ-X 搜索和播放' + cookieNames);
+      setStatus('qq', 'ok', 'QQ 音乐网页登录态已检测到', (status.nickname || status.userId || '已登录') + tabInfo + ' · 可尝试 QQ-X 搜索和播放' + cookieNames);
     } else if (status.loggedIn) {
-      setStatus('qq', 'warn', 'QQ 音乐账号已检测到', '播放授权 Cookie 不完整；请打开 y.qq.com 并播放任意歌曲后刷新状态' + cookieNames);
+      setStatus('qq', 'warn', 'QQ 音乐账号已检测到', '播放授权 Cookie 不完整；保持 y.qq.com 打开并在网页内播放一首歌后刷新' + tabInfo + cookieNames);
     } else {
-      setStatus('qq', 'warn', '未检测到 QQ 音乐网页登录态', '请先在浏览器里登录 y.qq.com；如已登录，请在扩展页确认已允许 QQ 音乐权限' + cookieNames);
+      setStatus('qq', 'warn', '未检测到 QQ 音乐网页登录态', '请打开并登录 y.qq.com；如果已登录，请确认扩展权限并让 QQ 音乐域名走国内直连' + tabInfo + cookieNames);
     }
   });
 }
