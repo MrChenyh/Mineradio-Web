@@ -1,12 +1,71 @@
 'use strict';
 
-function setStatus(provider, state, label, meta) {
-  var box = document.getElementById(provider + '-status');
-  if (!box) return;
-  document.getElementById(provider + '-status-label').textContent = label;
-  document.getElementById(provider + '-status-meta').textContent = meta || '';
-  box.classList.toggle('ok', state === 'ok');
-  box.classList.toggle('warn', state === 'warn');
+var TEXT = {
+  caption: '\u9ed8\u8ba4\u53ea\u770b\u8fde\u63a5\u72b6\u6001\uff0c\u70b9\u4e00\u884c\u518d\u770b\u8be6\u60c5',
+  retryTip: '\u5df2\u767b\u5f55\u4f46\u8fd8\u6ca1\u53d8\u7eff\uff0c\u5148\u5728\u7f51\u9875\u64ad\u4e00\u9996\u6b4c\u518d\u70b9\u5237\u65b0',
+  refresh: '\u5237\u65b0\u72b6\u6001',
+  refreshing: '\u68c0\u6d4b\u4e2d...',
+  openPlayer: '\u6253\u5f00 Web \u64ad\u653e\u5668',
+  hideDetail: '\u6536\u8d77',
+  noAccount: '\u672a\u663e\u793a\u8d26\u53f7\u540d\u79f0',
+  noExtraDetail: '\u6682\u65e0\u989d\u5916\u4fe1\u606f',
+  providers: {
+    netease: '\u7f51\u6613\u4e91',
+    qq: 'QQ \u97f3\u4e50',
+    kugou: '\u9177\u72d7'
+  },
+  providerLinks: {
+    netease: '\u6253\u5f00\u7f51\u6613\u4e91',
+    qq: '\u6253\u5f00 QQ \u97f3\u4e50',
+    kugou: '\u6253\u5f00\u9177\u72d7'
+  },
+  providerHrefs: {
+    netease: 'https://music.163.com/',
+    qq: 'https://y.qq.com/',
+    kugou: 'https://www.kugou.com/'
+  },
+  states: {
+    loading: '\u68c0\u6d4b\u4e2d',
+    connected: '\u5df2\u8fde\u63a5',
+    playable: '\u53ef\u64ad\u653e',
+    partial: '\u5f85\u8865\u5168',
+    limited: '\u5df2\u767b\u5f55\u4f46\u53d7\u9650',
+    importOnly: '\u4ec5\u5bfc\u5165',
+    disconnected: '\u672a\u8fde\u63a5',
+    failed: '\u8bfb\u53d6\u5931\u8d25',
+    unknownVip: 'VIP \u672a\u786e\u8ba4'
+  }
+};
+
+var PROVIDERS = ['netease', 'qq', 'kugou'];
+var providerViews = {};
+var activeProvider = '';
+var refreshPending = 0;
+
+function byId(id) {
+  return document.getElementById(id);
+}
+
+function setText(id, value) {
+  var el = byId(id);
+  if (el) el.textContent = value || '';
+}
+
+function setRefreshBusy(busy) {
+  var button = byId('refresh');
+  if (!button) return;
+  button.disabled = !!busy;
+  button.textContent = busy ? TEXT.refreshing : TEXT.refresh;
+}
+
+function beginRefresh() {
+  refreshPending += 1;
+  setRefreshBusy(true);
+}
+
+function endRefresh() {
+  refreshPending = Math.max(0, refreshPending - 1);
+  setRefreshBusy(refreshPending > 0);
 }
 
 function requestStatus(action, callback) {
@@ -17,85 +76,379 @@ function requestStatus(action, callback) {
 
 function oldExtensionMessage(message) {
   if (/unknown connector action/i.test(message || '')) {
-    return '扩展后台仍是旧版，请在 edge://extensions 或 chrome://extensions 点击“重新加载”。';
+    return '\u6269\u5c55\u540e\u53f0\u8fd8\u662f\u65e7\u7248\uff0c\u8bf7\u5728\u6269\u5c55\u9875\u91cd\u65b0\u52a0\u8f7d';
   }
-  return message || '未知错误';
+  return message || '\u672a\u77e5\u9519\u8bef';
 }
 
-function vipText(status) {
+function lineJoin(lines) {
+  return (lines || []).filter(Boolean);
+}
+
+function formatAge(ms) {
+  ms = Number(ms || 0);
+  if (!ms || ms < 0) return '';
+  if (ms < 60000) return '\u521a\u521a';
+  if (ms < 3600000) return Math.max(1, Math.round(ms / 60000)) + '\u5206\u949f';
+  if (ms < 86400000) return Math.max(1, Math.round(ms / 3600000)) + '\u5c0f\u65f6';
+  return Math.max(1, Math.round(ms / 86400000)) + '\u5929';
+}
+
+function safeTrim(value) {
+  return String(value == null ? '' : value).replace(/\s+/g, ' ').trim();
+}
+
+function decodeLegacyUnicode(value) {
+  var text = safeTrim(value);
+  if (!text) return '';
+  if (!/%u[0-9a-fA-F]{4}/.test(text) && !/%[0-9a-fA-F]{2}/.test(text)) return text;
+  try {
+    return unescape(text);
+  } catch (err) {
+    return text;
+  }
+}
+
+function looksUnreadable(value) {
+  var text = safeTrim(value);
+  if (!text) return true;
+  if (/%u[0-9a-fA-F]{4}/.test(text) || /%[0-9a-fA-F]{2}/.test(text)) return true;
+  if (/^[0-9_\-]{6,}$/.test(text)) return true;
+  if (/^(qq\s*)?[0-9]{5,}$/i.test(text)) return true;
+  if (/^[A-Za-z0-9+/=_-]{18,}$/.test(text)) return true;
+  return false;
+}
+
+function sanitizeAccountName(value) {
+  var decoded = decodeLegacyUnicode(value);
+  var text = safeTrim(decoded);
+  if (!text) return '';
+  if (looksUnreadable(text)) return '';
+  return text.length > 26 ? text.slice(0, 26) : text;
+}
+
+function vipLabel(status) {
   status = status || {};
-  if (status.vipUnknown || status.vipLabel === 'VIP_UNKNOWN') return ' 路 VIP 未确认';
-  if (status.vipLabel && status.vipLabel !== '无VIP') return ' · ' + status.vipLabel;
-  if (status.isSvip) return ' · SVIP';
-  if (status.isVip || Number(status.vipType || 0) > 0) return ' · VIP';
+  var raw = safeTrim(status.vipLabel || '');
+  if (raw === 'VIP_UNKNOWN' || status.vipUnknown) return TEXT.states.unknownVip;
+  if (!raw || raw === 'NO_VIP' || raw === '\u65e0 VIP' || raw === '\u65e0VIP') return '';
+  var upper = raw.toUpperCase();
+  if (upper.indexOf('SVIP') >= 0) return 'SVIP';
+  if (upper.indexOf('VIP') >= 0) {
+    if (raw === 'QQ VIP') return 'VIP';
+    return raw.length <= 10 ? raw : 'VIP';
+  }
+  if (/\u9ed1\u80f6|\u7eff\u94bb|\u8c6a\u534e|\u97f3\u4e50\u5305/.test(raw)) return raw;
+  if (status.isSvip) return 'SVIP';
+  if (status.isVip || Number(status.vipType || 0) > 0) return 'VIP';
   return '';
 }
 
-function refreshNeteaseStatus() {
-  setStatus('netease', 'warn', '正在检测网易云...', '读取 music.163.com Cookie / 扩展缓存');
-  requestStatus('netease.status', function (error, response) {
-    if (error || !response || !response.ok) {
-      setStatus('netease', 'warn', '网易云状态读取失败', oldExtensionMessage(error ? error.message : response && response.error));
-      return;
-    }
-    var status = response.status || {};
+function compactBadgeText(value) {
+  var text = safeTrim(value);
+  if (!text || text === TEXT.states.unknownVip) return '';
+  var upper = text.toUpperCase();
+  if (upper.indexOf('SVIP') >= 0) return 'SVIP';
+  if (upper.indexOf('VIP') >= 0) return 'VIP';
+  return '';
+}
+
+function cacheLine(status) {
+  status = status || {};
+  if (!status.authCached) return '';
+  var age = formatAge(status.cacheAgeMs);
+  return '\u5df2\u4fdd\u5b58\u4f1a\u8bdd' + (age ? '\uff08' + age + '\uff09' : '');
+}
+
+function summarizeStatus(provider, status) {
+  if (provider === 'netease') {
     if (status.loggedIn) {
-      setStatus('netease', 'ok', '网易云会话已保存', (status.nickname || status.userId || '已登录') + vipText(status) + (status.authCached ? ' · 缓存可用' : '') + ' · 可用于搜索、歌单和播放探测');
-    } else {
-      setStatus('netease', 'warn', '未检测到网易云会话', '在网页登录或在 Mineradio Web 中导入 Cookie 后会保存到扩展');
+      return {
+        tone: 'success',
+        stateText: TEXT.states.connected,
+        badge: vipLabel(status),
+        title: '\u5df2\u8bfb\u53d6\u5230\u767b\u5f55\u4f1a\u8bdd',
+        description: '\u53ef\u7528\u4e8e\u6b4c\u5355\u3001\u641c\u7d22\u548c\u5c01\u9762\u8bfb\u53d6',
+        account: sanitizeAccountName(status.nickname),
+        details: lineJoin([
+          cacheLine(status),
+          status.userId ? '\u8d26\u53f7 ID\uff1a' + status.userId : '',
+          vipLabel(status) ? '\u8d26\u53f7\u7c7b\u578b\uff1a' + vipLabel(status) : ''
+        ]),
+        tip: ''
+      };
     }
-  });
-}
+    return {
+      tone: 'danger',
+      stateText: TEXT.states.disconnected,
+      badge: '',
+      title: '\u8fd8\u6ca1\u8fde\u4e0a\u7f51\u6613\u4e91',
+      description: '\u767b\u5f55 music.163.com \u540e\u518d\u5237\u65b0',
+      account: '',
+      details: lineJoin([
+        cacheLine(status),
+        '\u5f53\u524d\u672a\u627e\u5230\u53ef\u7528 Cookie \u4f1a\u8bdd'
+      ]),
+      tip: ''
+    };
+  }
 
-function refreshQQStatus() {
-  setStatus('qq', 'warn', '正在检测 QQ 音乐...', '读取 y.qq.com Cookie / 扩展缓存');
-  requestStatus('qq.status', function (error, response) {
-    if (error || !response || !response.ok) {
-      setStatus('qq', 'warn', 'QQ 音乐状态读取失败', oldExtensionMessage(error ? error.message : response && response.error));
-      return;
-    }
-    var status = response.status || {};
-    var cookieNames = Array.isArray(status.loginCookieNames) && status.loginCookieNames.length
-      ? ' · Cookie: ' + status.loginCookieNames.join(', ')
-      : ' · Cookie: ' + (status.cookieCount || 0);
-    var tabInfo = status.musicTabReady
-      ? ' · 标签页: ' + (status.visibleTabCount || 1)
-      : ' · 未找到 y.qq.com 标签页';
-    var cacheInfo = status.authCached ? ' · 已保存会话' : '';
+  if (provider === 'qq') {
     if (status.loggedIn && status.playbackKeyReady) {
-      var authHint = status.authCached ? '播放授权已缓存' : (status.cookieCount > 1 ? 'Cookie 播放授权已检测到' : '页面播放授权已检测到');
-      setStatus('qq', 'ok', 'QQ 音乐会话已保存', (status.nickname || status.userId || '已登录') + vipText(status) + cacheInfo + tabInfo + ' · ' + authHint + ' · 可尝试 QQ-X 搜索和播放' + cookieNames);
-    } else if (status.loggedIn) {
-      setStatus('qq', 'warn', 'QQ 音乐账号已保存', '账号可用于歌单；播放授权还不完整。打开 y.qq.com 播放一首歌后刷新即可补全' + cacheInfo + tabInfo + cookieNames);
-    } else {
-      setStatus('qq', 'warn', '未检测到 QQ 音乐会话', '请在 y.qq.com 登录，或在 Mineradio Web 中导入 QQ Cookie' + tabInfo + cookieNames);
+      return {
+        tone: 'success',
+        stateText: TEXT.states.playable,
+        badge: vipLabel(status),
+        title: '\u5df2\u8fde\u63a5\u4e14\u64ad\u653e\u6388\u6743\u53ef\u7528',
+        description: '\u53ef\u4f18\u5148\u7528\u4e8e QQ \u6b4c\u5355\u3001\u641c\u7d22\u548c\u64ad\u653e',
+        account: sanitizeAccountName(status.nickname),
+        details: lineJoin([
+          cacheLine(status),
+          status.visibleTabCount ? '\u68c0\u6d4b\u5230 QQ \u9875\u9762\uff1a' + Number(status.visibleTabCount) + ' \u4e2a' : '',
+          Array.isArray(status.loginCookieNames) && status.loginCookieNames.length ? '\u5df2\u62ff\u5230\u64ad\u653e Cookie' : '',
+          vipLabel(status) ? '\u8d26\u53f7\u7c7b\u578b\uff1a' + vipLabel(status) : ''
+        ]),
+        tip: ''
+      };
     }
+    if (status.loggedIn) {
+      return {
+        tone: 'warning',
+        stateText: TEXT.states.partial,
+        badge: vipLabel(status),
+        title: '\u767b\u5f55\u72b6\u6001\u5df2\u4fdd\u5b58',
+        description: '\u8fd8\u5dee\u4e00\u6b65\u64ad\u653e\u6388\u6743',
+        account: sanitizeAccountName(status.nickname),
+        details: lineJoin([
+          cacheLine(status),
+          status.visibleTabCount ? '\u68c0\u6d4b\u5230 QQ \u9875\u9762\uff1a' + Number(status.visibleTabCount) + ' \u4e2a' : '\u76ee\u524d\u672a\u68c0\u6d4b\u5230 y.qq.com \u6253\u5f00\u9875\u9762',
+          Array.isArray(status.loginCookieNames) && status.loginCookieNames.length ? '\u5df2\u6355\u83b7 Cookie\uff1a' + status.loginCookieNames.length + ' \u9879' : '\u5f53\u524d Cookie \u4e0d\u5b8c\u6574',
+          vipLabel(status) ? '\u8d26\u53f7\u7c7b\u578b\uff1a' + vipLabel(status) : ''
+        ]),
+        tip: '\u5148\u5728 QQ \u97f3\u4e50\u7f51\u9875\u64ad\u4e00\u9996\u6b4c\uff0c\u7136\u540e\u518d\u70b9\u5237\u65b0\u72b6\u6001'
+      };
+    }
+    return {
+      tone: 'danger',
+      stateText: TEXT.states.disconnected,
+      badge: '',
+      title: '\u8fd8\u6ca1\u8fde\u4e0a QQ \u97f3\u4e50',
+      description: '\u767b\u5f55 y.qq.com \u540e\u53ef\u8bfb\u53d6\u6b4c\u5355\u548c\u64ad\u653e\u94fe\u63a5',
+      account: '',
+      details: lineJoin([
+        cacheLine(status),
+        status.visibleTabCount ? '\u68c0\u6d4b\u5230 QQ \u9875\u9762\uff1a' + Number(status.visibleTabCount) + ' \u4e2a' : '\u76ee\u524d\u672a\u68c0\u6d4b\u5230 y.qq.com \u9875\u9762'
+      ]),
+      tip: '\u767b\u5f55\u540e\u82e5\u8fd8\u662f\u9ec4\u706f\uff0c\u5148\u64ad\u4e00\u9996\u6b4c\u518d\u5237\u65b0'
+    };
+  }
+
+  if (status.playbackReady) {
+    return {
+      tone: 'success',
+      stateText: TEXT.states.playable,
+      badge: vipLabel(status),
+      title: '\u5df2\u767b\u5f55\u4e14\u64ad\u653e\u6d4b\u901a',
+      description: '\u9177\u72d7\u53ef\u53c2\u4e0e\u641c\u7d22\u64ad\u653e\u6392\u5e8f',
+      account: sanitizeAccountName(status.nickname || status.userId),
+      details: lineJoin([
+        cacheLine(status),
+        vipLabel(status) ? '\u8d26\u53f7\u7c7b\u578b\uff1a' + vipLabel(status) : '',
+        status.playbackProbeMessage ? '\u64ad\u653e\u68c0\u67e5\uff1a' + status.playbackProbeMessage : '\u64ad\u653e\u68c0\u67e5\u5df2\u901a\u8fc7'
+      ]),
+      tip: ''
+    };
+  }
+  if (status.loggedIn) {
+    return {
+      tone: 'warning',
+      stateText: TEXT.states.limited,
+      badge: vipLabel(status),
+      title: '\u767b\u5f55\u72b6\u6001\u5df2\u8bfb\u5230',
+      description: '\u76ee\u524d\u8fd8\u4e0d\u5efa\u8bae\u4f5c\u4e3a\u9996\u9009\u53ef\u64ad\u6e90',
+      account: sanitizeAccountName(status.nickname || status.userId),
+      details: lineJoin([
+        cacheLine(status),
+        vipLabel(status) ? '\u8d26\u53f7\u7c7b\u578b\uff1a' + vipLabel(status) : '',
+        status.playbackProbeMessage ? '\u64ad\u653e\u68c0\u67e5\uff1a' + status.playbackProbeMessage : '\u64ad\u653e\u68c0\u67e5\u672a\u901a\u8fc7'
+      ]),
+      tip: '\u5982\u679c\u521a\u767b\u5f55\u8fc7\uff0c\u5148\u5728\u9177\u72d7\u7f51\u9875\u64ad\u4e00\u9996\u6b4c\u518d\u8bd5'
+    };
+  }
+  return {
+    tone: 'danger',
+    stateText: TEXT.states.importOnly,
+    badge: '',
+    title: '\u5f53\u524d\u53ea\u9002\u5408\u5bfc\u5165\u5206\u4eab\u6b4c\u5355',
+    description: '\u6ca1\u6709\u786e\u8ba4\u5230\u53ef\u7528\u7684\u9177\u72d7\u64ad\u653e\u4f1a\u8bdd',
+    account: '',
+    details: lineJoin([
+      cacheLine(status),
+      status.playbackProbeMessage ? '\u64ad\u653e\u68c0\u67e5\uff1a' + status.playbackProbeMessage : '\u76ee\u524d\u53ea\u4fdd\u5b58\u5916\u94fe\u5bfc\u5165\u80fd\u529b'
+    ]),
+    tip: '\u767b\u5f55\u540e\u64ad\u4e00\u9996\u6b4c\uff0c\u80fd\u66f4\u5feb\u8865\u9f50\u64ad\u653e\u6388\u6743'
+  };
+}
+
+function failureView(provider, message) {
+  return {
+    provider: provider,
+    tone: 'danger',
+    stateText: TEXT.states.failed,
+    badge: '',
+    title: '\u72b6\u6001\u8bfb\u53d6\u5931\u8d25',
+    description: oldExtensionMessage(message),
+    account: '',
+    details: [oldExtensionMessage(message)],
+    tip: '\u5982\u679c\u521a\u91cd\u65b0\u52a0\u8f7d\u8fc7\u6269\u5c55\uff0c\u518d\u5237\u65b0\u4e00\u6b21\u8bd5\u8bd5'
+  };
+}
+
+function buildView(provider, status) {
+  var base = summarizeStatus(provider, status || {});
+  base.provider = provider;
+  return base;
+}
+
+function applyTone(el, tone) {
+  if (!el) return;
+  el.classList.remove('loading', 'success', 'warning', 'danger');
+  el.classList.add(tone || 'loading');
+}
+
+function setRowView(provider, view) {
+  providerViews[provider] = view;
+  setText('name-' + provider, TEXT.providers[provider]);
+  setText('state-' + provider, view.stateText);
+
+  var badge = byId('badge-' + provider);
+  if (badge) {
+    var badgeText = compactBadgeText(view.badge);
+    badge.hidden = !badgeText;
+    badge.textContent = badgeText;
+  }
+
+  applyTone(byId('dot-' + provider), view.tone);
+  applyTone(byId('state-' + provider), view.tone);
+}
+
+function showDetail(provider) {
+  var view = providerViews[provider];
+  if (!view) return;
+
+  activeProvider = provider;
+  PROVIDERS.forEach(function (name) {
+    var row = byId('row-' + name);
+    if (row) row.classList.toggle('active', name === provider);
+  });
+
+  var panel = byId('detail-panel');
+  if (panel) panel.hidden = false;
+
+  applyTone(byId('detail-dot'), view.tone);
+  setText('detail-title', TEXT.providers[provider]);
+  setText('detail-status', view.stateText);
+  setText('detail-account', view.account ? ('\u8d26\u53f7\uff1a' + view.account) : '');
+  setText('detail-description', view.title + (view.description ? '\uff0c' + view.description : ''));
+  setText('detail-tip', view.tip || '');
+
+  var list = byId('detail-list');
+  if (list) {
+    list.textContent = '';
+    var items = view.details && view.details.length ? view.details : [TEXT.noExtraDetail];
+    items.forEach(function (item) {
+      var div = document.createElement('div');
+      div.className = 'detail-item';
+      div.textContent = item;
+      list.appendChild(div);
+    });
+  }
+
+  var link = byId('open-provider');
+  if (link) {
+    link.href = TEXT.providerHrefs[provider];
+    link.textContent = TEXT.providerLinks[provider];
+  }
+}
+
+function hideDetail() {
+  activeProvider = '';
+  var panel = byId('detail-panel');
+  if (panel) panel.hidden = true;
+  PROVIDERS.forEach(function (name) {
+    var row = byId('row-' + name);
+    if (row) row.classList.remove('active');
   });
 }
 
-function refreshKugouStatus() {
-  setStatus('kugou', 'warn', '正在检测酷狗...', '读取 kugou.com Cookie 并做播放探测');
-  requestStatus('kugou.status', function (error, response) {
+function bindRows() {
+  PROVIDERS.forEach(function (provider) {
+    var row = byId('row-' + provider);
+    if (!row) return;
+    row.addEventListener('click', function () {
+      if (activeProvider === provider) {
+        hideDetail();
+      } else {
+        showDetail(provider);
+      }
+    });
+  });
+}
+
+function initStaticText() {
+  var manifest = chrome.runtime.getManifest();
+  setText('version-badge', 'v' + ((manifest && manifest.version) || ''));
+  setText('caption-text', TEXT.caption);
+  setText('retry-tip-text', TEXT.retryTip);
+  setText('refresh', TEXT.refresh);
+  setText('open-player', TEXT.openPlayer);
+  setText('hide-detail', TEXT.hideDetail);
+  PROVIDERS.forEach(function (provider) {
+    setText('name-' + provider, TEXT.providers[provider]);
+    setText('state-' + provider, TEXT.states.loading);
+  });
+}
+
+function refreshProvider(provider, action) {
+  beginRefresh();
+  setRowView(provider, {
+    provider: provider,
+    tone: 'loading',
+    stateText: TEXT.states.loading,
+    badge: '',
+    title: TEXT.states.loading,
+    description: '',
+    account: '',
+    details: []
+  });
+
+  requestStatus(action, function (error, response) {
+    var view;
     if (error || !response || !response.ok) {
-      setStatus('kugou', 'warn', '酷狗状态读取失败', oldExtensionMessage(error ? error.message : response && response.error));
-      return;
-    }
-    var status = response.status || {};
-    if (status.playbackReady) {
-      setStatus('kugou', 'ok', '酷狗播放能力已验证', (status.userId || '已登录') + vipText(status) + ' · KG-X 搜索和播放可用');
-    } else if (status.loggedIn) {
-      setStatus('kugou', 'warn', '酷狗账号已检测到但播放不可用', '不会作为优先播放源；仍可导入酷狗分享歌单。原因: ' + (status.playbackProbeMessage || '未拿到可播放地址'));
+      view = failureView(provider, error ? error.message : response && response.error);
     } else {
-      setStatus('kugou', 'warn', '酷狗仅外链导入可用', '未验证账号播放能力；可继续粘贴酷狗分享歌单导入');
+      view = buildView(provider, response.status || {});
     }
+    setRowView(provider, view);
+    if (activeProvider === provider) showDetail(provider);
+    endRefresh();
   });
 }
 
 function refreshStatus() {
-  refreshNeteaseStatus();
-  refreshQQStatus();
-  refreshKugouStatus();
+  refreshPending = 0;
+  setRefreshBusy(false);
+  refreshProvider('netease', 'netease.status');
+  refreshProvider('qq', 'qq.status');
+  refreshProvider('kugou', 'kugou.status');
 }
 
-document.getElementById('refresh').addEventListener('click', refreshStatus);
-refreshStatus();
+function initPopup() {
+  initStaticText();
+  bindRows();
+  byId('refresh').addEventListener('click', refreshStatus);
+  byId('hide-detail').addEventListener('click', hideDetail);
+  refreshStatus();
+}
+
+initPopup();

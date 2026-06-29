@@ -5,54 +5,359 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Mineradio Connector</title>
   <style>
-    :root{color-scheme:dark}
-    body{width:348px;margin:0;padding:18px;font:13px/1.5 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;color:#edf2f7;background:#0b0d11}
-    h1{margin:0 0 8px;font-size:18px;letter-spacing:.2px}
-    p{margin:0 0 12px;color:rgba(237,242,247,.68)}
-    .status{display:flex;align-items:flex-start;gap:10px;margin:10px 0;padding:11px;border:1px solid rgba(255,255,255,.12);border-radius:8px;background:rgba(255,255,255,.045)}
-    .dot{width:9px;height:9px;border-radius:50%;margin-top:5px;background:#f6c36a;box-shadow:0 0 18px rgba(246,195,106,.45);flex:0 0 auto}
-    .status.ok .dot{background:#55d88a;box-shadow:0 0 18px rgba(85,216,138,.45)}
-    .status.warn .dot{background:#ffb86b;box-shadow:0 0 18px rgba(255,184,107,.45)}
-    .label{font-weight:750}
-    .meta{font-size:11px;color:rgba(237,242,247,.52)}
-    .soon{margin:12px 0 2px;padding:10px 11px;border-radius:8px;border:1px dashed rgba(255,255,255,.13);color:rgba(237,242,247,.62);background:rgba(255,255,255,.03)}
-    button,a{display:inline-flex;align-items:center;justify-content:center;height:34px;padding:0 12px;border-radius:7px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.065);color:#fff;text-decoration:none;font-weight:700;cursor:pointer}
-    .primary{background:rgba(0,245,212,.16);border-color:rgba(0,245,212,.28);color:#dffff9}
-    .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    body {
+      width: 340px;
+      margin: 0;
+      padding: 14px;
+      font: 13px/1.4 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+      color: #eef2f7;
+      background: #0b0d11;
+    }
+    .shell {
+      display: grid;
+      gap: 10px;
+    }
+    .header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .brand {
+      font-size: 16px;
+      font-weight: 700;
+      color: #ffffff;
+    }
+    .caption {
+      margin-top: 2px;
+      font-size: 11px;
+      color: rgba(238, 242, 247, 0.58);
+    }
+    .version {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 50px;
+      height: 24px;
+      padding: 0 8px;
+      border: 1px solid rgba(0, 245, 212, 0.28);
+      border-radius: 999px;
+      background: rgba(0, 245, 212, 0.08);
+      color: #dffff9;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+    }
+    .rows {
+      display: grid;
+      gap: 8px;
+    }
+    .provider-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 10px;
+      min-height: 48px;
+      padding: 0 12px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.04);
+      color: inherit;
+      cursor: pointer;
+      text-align: left;
+      transition: border-color 0.18s ease, background 0.18s ease, transform 0.18s ease;
+    }
+    .provider-row:hover {
+      border-color: rgba(255, 255, 255, 0.18);
+      background: rgba(255, 255, 255, 0.06);
+    }
+    .provider-row:focus-visible {
+      outline: 2px solid rgba(0, 245, 212, 0.42);
+      outline-offset: 1px;
+    }
+    .provider-row.active {
+      border-color: rgba(0, 245, 212, 0.28);
+      background: rgba(0, 245, 212, 0.08);
+    }
+    .provider-main {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+    .provider-name {
+      min-width: 0;
+      font-size: 13px;
+      font-weight: 700;
+      color: #ffffff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .provider-side {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 6px;
+      min-width: 0;
+    }
+    .provider-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex: 0 0 auto;
+      background: #5f6b7a;
+      box-shadow: 0 0 0 3px rgba(95, 107, 122, 0.16);
+    }
+    .provider-dot.loading,
+    .provider-state.loading {
+      background: #f3b35a;
+      border-color: rgba(243, 179, 90, 0.28);
+      color: #ffe4bd;
+      box-shadow: 0 0 0 3px rgba(243, 179, 90, 0.14);
+    }
+    .provider-dot.success,
+    .provider-state.success {
+      background: #4fd18b;
+      border-color: rgba(79, 209, 139, 0.28);
+      color: #d8ffea;
+      box-shadow: 0 0 0 3px rgba(79, 209, 139, 0.14);
+    }
+    .provider-dot.warning,
+    .provider-state.warning {
+      background: #f3b35a;
+      border-color: rgba(243, 179, 90, 0.28);
+      color: #ffe4bd;
+      box-shadow: 0 0 0 3px rgba(243, 179, 90, 0.14);
+    }
+    .provider-dot.danger,
+    .provider-state.danger {
+      background: #ff7f7f;
+      border-color: rgba(255, 127, 127, 0.24);
+      color: #ffd9d9;
+      box-shadow: 0 0 0 3px rgba(255, 127, 127, 0.12);
+    }
+    .provider-state,
+    .provider-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      height: 24px;
+      padding: 0 9px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.06);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+    }
+    .provider-badge {
+      color: rgba(238, 242, 247, 0.84);
+      background: rgba(255, 255, 255, 0.04);
+    }
+    .provider-badge[hidden] {
+      display: none;
+    }
+    .note {
+      padding: 0 2px;
+      font-size: 11px;
+      color: rgba(238, 242, 247, 0.62);
+    }
+    .actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .action-btn,
+    .mini-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      height: 34px;
+      padding: 0 12px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 9px;
+      background: rgba(255, 255, 255, 0.06);
+      color: #ffffff;
+      text-decoration: none;
+      cursor: pointer;
+      font: inherit;
+      font-weight: 700;
+      transition: border-color 0.18s ease, background 0.18s ease, transform 0.18s ease;
+    }
+    .action-btn:hover,
+    .mini-btn:hover {
+      border-color: rgba(255, 255, 255, 0.22);
+      background: rgba(255, 255, 255, 0.1);
+    }
+    .action-btn.primary {
+      border-color: rgba(0, 245, 212, 0.28);
+      background: rgba(0, 245, 212, 0.16);
+      color: #dffff9;
+    }
+    .action-btn.primary:hover {
+      border-color: rgba(0, 245, 212, 0.38);
+      background: rgba(0, 245, 212, 0.22);
+    }
+    .action-btn:disabled,
+    .mini-btn:disabled {
+      opacity: 0.6;
+      cursor: default;
+      transform: none;
+    }
+    .detail-panel {
+      display: grid;
+      gap: 8px;
+      padding: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.04);
+    }
+    .detail-panel[hidden] {
+      display: none;
+    }
+    .detail-top {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+    .detail-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+    .detail-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #ffffff;
+    }
+    .detail-status {
+      margin-top: 1px;
+      font-size: 11px;
+      color: rgba(238, 242, 247, 0.64);
+    }
+    .detail-account,
+    .detail-description,
+    .detail-item {
+      font-size: 12px;
+      color: rgba(238, 242, 247, 0.84);
+    }
+    .detail-account:empty,
+    .detail-description:empty {
+      display: none;
+    }
+    .detail-list {
+      display: grid;
+      gap: 6px;
+    }
+    .detail-item {
+      color: rgba(238, 242, 247, 0.72);
+    }
+    .detail-tip {
+      padding: 8px 9px;
+      border: 1px solid rgba(243, 179, 90, 0.22);
+      border-radius: 8px;
+      background: rgba(243, 179, 90, 0.08);
+      color: #ffe7c4;
+      font-size: 11px;
+    }
+    .detail-tip:empty {
+      display: none;
+    }
+    .detail-actions {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+    }
+    .mini-btn {
+      height: 30px;
+      padding: 0 10px;
+      font-size: 12px;
+      font-weight: 600;
+      color: rgba(238, 242, 247, 0.86);
+    }
   </style>
 </head>
 <body>
-  <h1>Mineradio Connector</h1>
-  <p>连接浏览器里的音乐网页登录态，供 Mineradio Web 搜索、读取封面歌词和获取可播放地址。</p>
-  <div id="netease-status" class="status">
-    <span class="dot"></span>
-    <div>
-      <div id="netease-status-label" class="label">正在检测网易云...</div>
-      <div id="netease-status-meta" class="meta">读取 music.163.com Cookie</div>
+  <div class="shell">
+    <div class="header">
+      <div>
+        <div class="brand">Mineradio Connector</div>
+        <div id="caption-text" class="caption"></div>
+      </div>
+      <div id="version-badge" class="version"></div>
+    </div>
+
+    <div class="rows">
+      <button id="row-netease" class="provider-row" type="button" data-provider="netease">
+        <span class="provider-main">
+          <span id="dot-netease" class="provider-dot loading" aria-hidden="true"></span>
+          <span id="name-netease" class="provider-name"></span>
+        </span>
+        <span class="provider-side">
+          <span id="badge-netease" class="provider-badge" hidden></span>
+          <span id="state-netease" class="provider-state loading"></span>
+        </span>
+      </button>
+
+      <button id="row-qq" class="provider-row" type="button" data-provider="qq">
+        <span class="provider-main">
+          <span id="dot-qq" class="provider-dot loading" aria-hidden="true"></span>
+          <span id="name-qq" class="provider-name"></span>
+        </span>
+        <span class="provider-side">
+          <span id="badge-qq" class="provider-badge" hidden></span>
+          <span id="state-qq" class="provider-state loading"></span>
+        </span>
+      </button>
+
+      <button id="row-kugou" class="provider-row" type="button" data-provider="kugou">
+        <span class="provider-main">
+          <span id="dot-kugou" class="provider-dot loading" aria-hidden="true"></span>
+          <span id="name-kugou" class="provider-name"></span>
+        </span>
+        <span class="provider-side">
+          <span id="badge-kugou" class="provider-badge" hidden></span>
+          <span id="state-kugou" class="provider-state loading"></span>
+        </span>
+      </button>
+    </div>
+
+    <div id="retry-tip-text" class="note"></div>
+
+    <div class="actions">
+      <button id="refresh" class="action-btn primary" type="button"></button>
+      <a id="open-player" class="action-btn" href="https://mrchenyh.github.io/Mineradio-Web/" target="_blank" rel="noreferrer"></a>
+    </div>
+
+    <div id="detail-panel" class="detail-panel" hidden>
+      <div class="detail-top">
+        <div class="detail-title-wrap">
+          <span id="detail-dot" class="provider-dot loading" aria-hidden="true"></span>
+          <div>
+            <div id="detail-title" class="detail-title"></div>
+            <div id="detail-status" class="detail-status"></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="detail-account" class="detail-account"></div>
+      <div id="detail-description" class="detail-description"></div>
+      <div id="detail-list" class="detail-list"></div>
+      <div id="detail-tip" class="detail-tip"></div>
+
+      <div class="detail-actions">
+        <a id="open-provider" class="action-btn" target="_blank" rel="noreferrer"></a>
+        <button id="hide-detail" class="mini-btn" type="button"></button>
+      </div>
     </div>
   </div>
-  <div id="qq-status" class="status">
-    <span class="dot"></span>
-    <div>
-      <div id="qq-status-label" class="label">正在检测 QQ 音乐...</div>
-      <div id="qq-status-meta" class="meta">读取 y.qq.com Cookie</div>
-    </div>
-  </div>
-  <div id="kugou-status" class="status">
-    <span class="dot"></span>
-    <div>
-      <div id="kugou-status-label" class="label">正在检测酷狗...</div>
-      <div id="kugou-status-meta" class="meta">读取 kugou.com Cookie</div>
-    </div>
-  </div>
-  <div class="soon">Apple Music、汽水音乐等渠道正在加入中；只有能稳定搜索并获取播放内容后才会进入播放器。</div>
-  <div class="actions">
-    <a class="primary" href="https://mrchenyh.github.io/Mineradio-Web/" target="_blank" rel="noreferrer">打开播放器</a>
-    <a href="https://music.163.com/" target="_blank" rel="noreferrer">打开网易云</a>
-    <a href="https://y.qq.com/" target="_blank" rel="noreferrer">打开 QQ 音乐</a>
-    <a href="https://www.kugou.com/" target="_blank" rel="noreferrer">打开酷狗</a>
-    <button id="refresh" type="button">刷新状态</button>
-  </div>
+
   <script src="popup.js"></script>
 </body>
 </html>
