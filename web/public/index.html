@@ -710,9 +710,12 @@ body.diy-mode #controls{
 .control-track{
   flex:1 1 auto;
   min-width:0;
+  max-width:min(420px,100%);
 }
 .control-meta{
-  max-width:min(320px,100%);
+  flex:1 1 auto;
+  min-width:0;
+  max-width:100%;
 }
 @media (max-width:1180px){
   body.diy-mode #bottom-bar,
@@ -720,7 +723,8 @@ body.diy-mode #controls{
     left:50%;
     width:calc(100vw - clamp(28px,8vw,142px));
   }
-  .control-meta{max-width:min(220px,100%)}
+  .control-track{max-width:min(320px,100%)}
+  .control-meta{max-width:100%}
 }
 @media (max-width:920px){
   #bottom-bar,
@@ -735,11 +739,13 @@ body.diy-mode #controls{
   body.diy-mode #controls{
     grid-template-columns:minmax(0,1fr) max-content minmax(0,1fr);
   }
-  .control-meta{max-width:min(170px,100%)}
+  .control-track{max-width:min(240px,100%)}
+  .control-meta{max-width:100%}
 }
 @media (max-width:720px){
   .control-cover{display:none}
-  .control-meta{max-width:min(132px,100%)}
+  .control-track{max-width:min(210px,100%)}
+  .control-meta{max-width:100%}
   .control-cluster.modes{gap:6px}
 }
 @media (max-width:1180px){
@@ -751,6 +757,7 @@ body.diy-mode #controls{
   body.diy-mode #time-display,
   body.diy-mode #controls-hide-btn{display:none!important}
   body.diy-mode .control-track{max-width:260px}
+  body.diy-mode .control-meta{max-width:100%}
 }
 @media (max-width:940px){
   body.diy-mode .lyrics-toggle-btn,
@@ -2756,6 +2763,8 @@ var AUDIUS_API = 'https://discoveryprovider.audius.co/v1/tracks/search';
 var ITUNES_SEARCH_API = 'https://itunes.apple.com/search';
 var LRCLIB_SEARCH_API = 'https://lrclib.net/api/search';
 var KUGOU_SHARE_RE = /(?:https?:\/\/(?:t1|m|m3ws|www)\.kugou\.com\/[^\s"'<>]*?(?:gcid_[a-z0-9]+|src_cid=[a-z0-9]+)[^\s"'<>]*|gcid_[a-z0-9]+)/i;
+var NETEASE_PLAYLIST_SHARE_RE = /(?:https?:\/\/(?:music\.163\.com|y\.music\.163\.com)\/[^\s"'<>]*(?:playlist|id=\d{5,})[^\s"'<>]*|(?:^|[^a-z0-9])netease:\d{5,}(?:\D|$))/i;
+var QQ_PLAYLIST_SHARE_RE = /(?:https?:\/\/(?:y\.qq\.com|i\.y\.qq\.com|c\.y\.qq\.com)\/[^\s"'<>]*(?:playlist|playsquare|disstid=|tid=|id=\d{5,})[^\s"'<>]*|(?:^|[^a-z0-9])qq:\d{5,}(?:\D|$))/i;
 var ITUNES_HOME_PREVIEW_QUERIES = ['飞机场的10:30 陶喆', '似曾相识 陶喆', '千言万语 陶喆', '陶喆'];
 var homePreviewSongs = [];
 var homePreviewLoading = false;
@@ -2801,7 +2810,7 @@ var audioFadeTimer = null, audioElementFadeFrame = 0, audioFadeSerial = 0;
 var AUDIO_FADE_IN_MS = 460;
 var AUDIO_FADE_OUT_MS = 420;
 var AUDIO_SILENCE_GAIN = 0.0001;
-var userPlaylists = [], qqPlaylists = [], myPodcastCollections = [], myPodcastItems = {}, playlistCoverCache = {};
+var userPlaylists = [], qqPlaylists = [], importedSharedPlaylists = [], myPodcastCollections = [], myPodcastItems = {}, playlistCoverCache = {};
 var CUSTOM_COVER_STORE_KEY = 'mineradio-custom-covers';
 var CUSTOM_LYRIC_STORE_KEY = 'mineradio-custom-lyrics-v1';
 var CUSTOM_LYRIC_PREF_STORE_KEY = 'mineradio-custom-lyric-prefs-v1';
@@ -2811,6 +2820,7 @@ var PLAYBACK_QUALITY_STORE_KEY = 'mineradio-playback-quality-v1';
 var UPLOAD_TIP_STORE_KEY = 'mineradio-upload-tip-seen';
 var DIY_MODE_STORE_KEY = 'mineradio-diy-player-mode-v1';
 var PLAYLIST_PANEL_PIN_STORE_KEY = 'mineradio-playlist-panel-pinned-v1';
+var SHARED_PLAYLIST_STORE_KEY = 'mineradio-shared-playlists-v1';
 var USER_CAPSULE_AUTO_HIDE_STORE_KEY = 'mineradio-user-capsule-auto-hide-v1';
 var FX_FAB_AUTO_HIDE_STORE_KEY = 'mineradio-fx-fab-auto-hide-v1';
 var CONTROLS_AUTO_HIDE_STORE_KEY = 'mineradio-controls-auto-hide-v1';
@@ -13112,13 +13122,13 @@ function makeShelfManager() {
   }
 
   function currentItems() {
-    if (hasAnyPlatformLogin() && (userPlaylists.length || myPodcastCollections.length)) {
+    if (userPlaylists.length || (hasAnyPlatformLogin() && myPodcastCollections.length)) {
       var source = activePlaylists();
       var items = source.map(function(pl){
-        var provider = pl.provider === 'qq' ? 'qq' : 'netease';
-        var sourceLabel = provider === 'qq' ? 'QQ' : 'NE';
+        var provider = playlistProviderKey(pl.provider);
+        var sourceLabel = playlistProviderLabel(provider);
         return { type:'playlist', title: pl.name, sub:sourceLabel + ' · ' + (pl.trackCount||0)+' 首 · 播放 '+compactCount(pl.playCount||0),
-          cover: pl.cover || '', tag: pl.subscribed ? '收藏歌单' : '我的歌单', playlistId: (provider === 'qq' ? 'qq:' : '') + pl.id, provider: provider };
+          cover: pl.cover || '', tag: pl.imported ? '导入歌单' : (pl.subscribed ? '收藏歌单' : '我的歌单'), playlistId: playlistProviderId(provider, pl.id), provider: provider };
       });
       if (shelfShowsPodcasts() && (shelfPane === 'mine' || shelfMergesCollections()) && myPodcastCollections.length) {
         myPodcastCollections.forEach(function(pc){
@@ -13631,7 +13641,7 @@ void main(){ vec4 t = texture2D(uDotTex, gl_PointCoord); if (t.a < 0.02) discard
   }
 
   function sig(items) {
-    if (hasAnyPlatformLogin() && (userPlaylists.length || myPodcastCollections.length)) {
+    if (userPlaylists.length || (hasAnyPlatformLogin() && myPodcastCollections.length)) {
       var source = activePlaylists();
       items = items || currentItems();
       var sampleItems = items.slice(0, 3).concat(items.slice(Math.max(3, items.length - 3)));
@@ -13694,12 +13704,12 @@ void main(){ vec4 t = texture2D(uDotTex, gl_PointCoord); if (t.a < 0.02) discard
     var atEnd = centerTarget >= allItems.length - 1 && direction > 0;
     var atStart = centerTarget <= 0 && direction < 0;
     if (!shelfMergesCollections()) {
-      if (hasAnyPlatformLogin() && userPlaylists.length && shelfPane === 'mine' && atEnd && panes.fav.length) {
+      if (userPlaylists.length && shelfPane === 'mine' && atEnd && panes.fav.length) {
         collectionReveal += Math.min(1.5, Math.abs(direction));
         if (collectionReveal >= 3) switchPane('fav');
         return;
       }
-      if (hasAnyPlatformLogin() && userPlaylists.length && shelfPane === 'fav' && atStart && panes.mine.length) {
+      if (userPlaylists.length && shelfPane === 'fav' && atStart && panes.mine.length) {
         collectionReveal += Math.min(1.5, Math.abs(direction));
         if (collectionReveal >= 3) switchPane('mine');
         return;
@@ -14504,18 +14514,18 @@ function makeContentListManager() {
         console.warn('[ShelfContentLoadingRender]', playlistId, renderLoadingErr);
       }
       var podcastCollectionKey = String(playlistId || '').indexOf('podcast:') === 0 ? String(playlistId).slice(8) : '';
-      var qqPlaylistId = String(playlistId || '').indexOf('qq:') === 0 ? String(playlistId).slice(3) : '';
+      var playlistReq = resolvePlaylistRequest(playlistId, fromCard && fromCard.item && fromCard.item.provider);
       contentKind = podcastCollectionKey ? 'podcast' : 'playlist';
       // 拉取歌单/播客集合
       var r = null;
       try {
         r = podcastCollectionKey
           ? await apiJson('/api/podcast/my/items?key=' + encodeURIComponent(podcastCollectionKey) + '&limit=36')
-          : (qqPlaylistId
-            ? await apiJson('/api/qq/playlist/tracks?id=' + encodeURIComponent(qqPlaylistId))
-            : (LOCAL_FIRST_MODE && connectorState.available
-              ? await connectorRequest('netease.playlistTracks', { id: playlistId }, 14000)
-              : await apiJson('/api/playlist/tracks?id=' + encodeURIComponent(playlistId))));
+          : (LOCAL_FIRST_MODE && connectorState.available
+            ? await loadConnectorPlaylistData(playlistReq.provider, playlistReq.id, { timeoutMs: playlistReq.provider === 'kugou' ? 18000 : 16000 })
+            : (playlistReq.provider === 'qq'
+              ? await apiJson('/api/qq/playlist/tracks?id=' + encodeURIComponent(playlistReq.id))
+              : await apiJson('/api/playlist/tracks?id=' + encodeURIComponent(playlistReq.id))));
       } catch (e) {
         if (!open || token !== requestToken) return;
         console.warn('[ShelfContentLoadApi]', playlistId, e);
@@ -15412,6 +15422,118 @@ function songCoverSrc(song, size) {
   var custom = getCustomCoverForSong(song);
   if (custom) return custom;
   return song && song.cover ? coverUrlWithSize(song.cover, size) : '';
+}
+function playlistProviderKey(provider) {
+  provider = String(provider || '').toLowerCase();
+  if (provider === 'qq' || provider === 'qq-extension') return 'qq';
+  if (provider === 'kugou' || provider === 'kugou-extension') return 'kugou';
+  return 'netease';
+}
+function playlistProviderLabel(provider) {
+  provider = playlistProviderKey(provider);
+  return provider === 'qq' ? 'QQ' : (provider === 'kugou' ? 'KG' : 'NE');
+}
+function playlistProviderName(provider) {
+  provider = playlistProviderKey(provider);
+  return provider === 'qq' ? 'QQ 音乐' : (provider === 'kugou' ? '酷狗导入' : '网易云');
+}
+function playlistProviderId(provider, id) {
+  provider = playlistProviderKey(provider);
+  id = String(id || '').trim();
+  if (!id) return '';
+  if (provider === 'qq') return id.indexOf('qq:') === 0 ? id : ('qq:' + id);
+  if (provider === 'kugou') return id.indexOf('kugou:') === 0 ? id : ('kugou:' + id.replace(/^gcid_/i, 'gcid_'));
+  return id.indexOf('netease:') === 0 ? id.slice(8) : id;
+}
+function normalizePlaylistRecord(pl, fallbackProvider) {
+  pl = pl || {};
+  var provider = playlistProviderKey(pl.provider || pl.source || fallbackProvider || 'netease');
+  var id = String(pl.id || pl.playlistId || '').trim();
+  if (provider === 'qq') id = id.replace(/^qq:/, '');
+  if (provider === 'kugou' && id && id.indexOf('kugou:') !== 0) id = playlistProviderId('kugou', id);
+  return Object.assign({}, pl, {
+    provider: provider,
+    source: pl.source || (provider + '-extension'),
+    type: 'playlist',
+    id: id,
+    name: pl.name || pl.title || playlistProviderName(provider) + '歌单',
+    cover: pl.cover || '',
+    trackCount: Number(pl.trackCount || pl.count || 0) || 0,
+    playCount: Number(pl.playCount || 0) || 0,
+    creator: pl.creator || '',
+    subscribed: !!pl.subscribed,
+    imported: !!pl.imported,
+    importedAt: Number(pl.importedAt || 0) || 0
+  });
+}
+function readImportedSharedPlaylists() {
+  try {
+    var raw = JSON.parse(localStorage.getItem(SHARED_PLAYLIST_STORE_KEY) || '[]') || [];
+    return (Array.isArray(raw) ? raw : []).map(function(pl){ return normalizePlaylistRecord(pl, pl && pl.provider); }).filter(function(pl){ return pl.id && pl.name; }).slice(0, 24);
+  } catch (e) {
+    return [];
+  }
+}
+function saveImportedSharedPlaylists() {
+  try { localStorage.setItem(SHARED_PLAYLIST_STORE_KEY, JSON.stringify((importedSharedPlaylists || []).slice(0, 24))); } catch (e) {}
+}
+function rememberImportedSharedPlaylist(pl) {
+  pl = normalizePlaylistRecord(Object.assign({}, pl || {}, { imported: true, importedAt: Date.now() }), pl && pl.provider);
+  if (!pl.id) return null;
+  importedSharedPlaylists = (importedSharedPlaylists || []).filter(function(item){
+    return !(playlistProviderKey(item.provider) === pl.provider && String(item.id || '') === String(pl.id || ''));
+  });
+  importedSharedPlaylists.unshift(pl);
+  importedSharedPlaylists = importedSharedPlaylists.slice(0, 24);
+  saveImportedSharedPlaylists();
+  return pl;
+}
+function mergePlaylistRecords(items) {
+  var out = [];
+  var seen = {};
+  (items || []).forEach(function(item){
+    var pl = normalizePlaylistRecord(item, item && item.provider);
+    if (!pl.id || !pl.name) return;
+    var key = playlistProviderKey(pl.provider) + ':' + String(pl.id || '');
+    if (seen[key]) {
+      Object.assign(seen[key], pl, { imported: seen[key].imported || pl.imported, subscribed: seen[key].subscribed || pl.subscribed });
+      return;
+    }
+    seen[key] = pl;
+    out.push(pl);
+  });
+  return out;
+}
+importedSharedPlaylists = readImportedSharedPlaylists();
+userPlaylists = mergePlaylistRecords(userPlaylists.concat(importedSharedPlaylists));
+async function loadConnectorPlaylistData(provider, id, opts) {
+  opts = opts || {};
+  provider = playlistProviderKey(provider);
+  id = String(id || '').trim();
+  if (!id) throw new Error('Missing playlist id');
+  if (provider === 'qq') {
+    if (!connectorSupportsQQPlaylists()) throw new Error('需要更新 Mineradio Connector 到 0.4.9 或更新版本');
+    return connectorRequest('qq.playlistTracks', { id: id.replace(/^qq:/, '') }, opts.timeoutMs || 16000);
+  }
+  if (provider === 'kugou') {
+    if (!connectorSupportsSharedPlaylistImport()) throw new Error('需要更新 Mineradio Connector 到 0.4.9 或更新版本');
+    return connectorRequest('kugou.sharedPlaylist', { text: id }, opts.timeoutMs || 18000);
+  }
+  return connectorRequest('netease.playlistTracks', { id: id.replace(/^netease:/, '') }, opts.timeoutMs || 14000);
+}
+function resolvePlaylistRequest(id, provider) {
+  var raw = String(id || '').trim();
+  provider = playlistProviderKey(provider || 'netease');
+  if (raw.indexOf('qq:') === 0) {
+    provider = 'qq';
+    raw = raw.slice(3);
+  } else if (raw.indexOf('kugou:') === 0) {
+    provider = 'kugou';
+  } else if (raw.indexOf('netease:') === 0) {
+    provider = 'netease';
+    raw = raw.slice(8);
+  }
+  return { provider: provider, id: raw };
 }
 function cssImageUrl(url) {
   return String(url || '').replace(/\\/g, '\\\\').replace(/"/g, '%22');
@@ -17743,6 +17865,12 @@ function connectorSupportsKugou() {
 function connectorSupportsKugouSharedPlaylist() {
   return connectorState.available && versionAtLeast(connectorState.version, '0.4.3');
 }
+function connectorSupportsQQPlaylists() {
+  return connectorState.available && versionAtLeast(connectorState.version, '0.4.9');
+}
+function connectorSupportsSharedPlaylistImport() {
+  return connectorState.available && versionAtLeast(connectorState.version, '0.4.9');
+}
 function connectorSupportsNeteaseTabPlayback() {
   return connectorState.available && versionAtLeast(connectorState.version, '0.3.0');
 }
@@ -18202,7 +18330,7 @@ function songSimilarityKey(song) {
   return simpleSearchNorm(song.name || song.title || '') + '|' + (artists[0] || simpleSearchNorm(song.artist || ''));
 }
 function songHasKnownPlayableAudio(song) {
-  return !!(song && (song.publicAudioUrl || song.previewUrl || song.streamUrl || (song.playbackChecked && song.playable !== false && !song.playbackProbeFailed)));
+  return !!(song && (song.publicAudioUrl || song.previewUrl || song.streamUrl || song.playbackProbeDeferred || (song.playbackChecked && song.playable !== false && !song.playbackProbeFailed)));
 }
 function mergeSongSearchResults(neteaseSongs, qqSongs, limit, q) {
   var out = [];
@@ -18474,6 +18602,7 @@ function normalizeConnectorSong(song) {
     playbackChecked: !!song.playbackChecked,
     playbackCode: Number(song.playbackCode || 0) || 0,
     playbackProbeFailed: !!song.playbackProbeFailed,
+    playbackProbeDeferred: !!song.playbackProbeDeferred,
     playbackMessage: song.playbackMessage || '',
     publicAudioUrl: song.probedAudioUrl || song.publicAudioUrl || ''
   });
@@ -18517,8 +18646,66 @@ async function fetchConnectorNeteaseSearchResults(q) {
 function looksLikeKugouShareInput(q) {
   return KUGOU_SHARE_RE.test(String(q || ''));
 }
+function detectPlaylistShareInput(q) {
+  q = String(q || '').trim();
+  if (!q) return null;
+  if (looksLikeKugouShareInput(q)) return { provider: 'kugou', action: 'kugou.sharedPlaylist', text: q };
+  if (QQ_PLAYLIST_SHARE_RE.test(q)) return { provider: 'qq', action: 'qq.sharedPlaylist', text: q };
+  if (NETEASE_PLAYLIST_SHARE_RE.test(q)) return { provider: 'netease', action: 'netease.sharedPlaylist', text: q };
+  return null;
+}
+function sharedPlaylistImportTitle(provider) {
+  provider = playlistProviderKey(provider);
+  return provider === 'qq' ? 'QQ 歌单' : (provider === 'kugou' ? '酷狗分享歌单' : '网易云歌单');
+}
+async function importSharedPlaylist(q, opts) {
+  opts = opts || {};
+  var share = detectPlaylistShareInput(q);
+  if (!share) return false;
+  if (share.provider !== 'kugou' && !connectorSupportsSharedPlaylistImport()) {
+    showSourceFallbackNotice('需要更新 Mineradio Connector', '网易云 / QQ 外链歌单导入需要 0.4.9 或更新版本的浏览器扩展。');
+    return true;
+  }
+  if (share.provider === 'kugou' && !connectorSupportsKugouSharedPlaylist()) {
+    showSourceFallbackNotice('需要更新 Mineradio Connector', '酷狗分享歌单导入需要 0.4.3 或更新版本的浏览器扩展。');
+    return true;
+  }
+  var requestSeq = ++searchRequestSeq;
+  var title = sharedPlaylistImportTitle(share.provider);
+  playlist = [];
+  $results.innerHTML = '<div class="search-empty">正在读取' + escHtml(title) + '...</div>';
+  $results.classList.add('show');
+  try {
+    var res = await connectorRequest(share.action, { text: q, url: q }, share.provider === 'kugou' ? 18000 : 16000);
+    if (requestSeq !== searchRequestSeq) return true;
+    var tracks = (Array.isArray(res.tracks) ? res.tracks : []).map(normalizeConnectorSong).filter(function(song){ return song.id && song.name; });
+    if (!tracks.length) {
+      playlist = [];
+      $results.innerHTML = '<div class="search-empty">这个' + escHtml(title) + '暂时没有可读取的歌曲</div>';
+      return true;
+    }
+    var pl = normalizePlaylistRecord(Object.assign({}, res.playlist || {}, { provider: share.provider, imported: true }), share.provider);
+    if (pl.id) rememberImportedSharedPlaylist(pl);
+    userPlaylists = mergePlaylistRecords(userPlaylists.concat(importedSharedPlaylists));
+    searchLastResultQuery = share.provider + '-share:' + q;
+    playlist = tracks;
+    renderSongSearchResults(tracks);
+    renderUserPlaylistsList({ animate: isPlaylistPanelVisibleForRender(), reset: true });
+    safeShelfRebuild('shared-playlist-import', true);
+    showSourceFallbackNotice(title + '已导入', (pl.name || '分享歌单') + ' · ' + tracks.length + ' 首。点击歌曲即可播放，失败时会自动换源。');
+    if (opts.autoPlayFirst) playSearchResult(0);
+    return true;
+  } catch (err) {
+    if (requestSeq !== searchRequestSeq) return true;
+    console.warn('[SharedPlaylistImport]', share.provider, err);
+    playlist = [];
+    $results.innerHTML = '<div class="search-empty">' + escHtml(err && err.message || (title + '读取失败')) + '</div>';
+    return true;
+  }
+}
 async function importKugouSharedPlaylist(q, opts) {
   opts = opts || {};
+  if (detectPlaylistShareInput(q)) return importSharedPlaylist(q, opts);
   if (!connectorSupportsKugouSharedPlaylist()) {
     showSourceFallbackNotice('需要更新 Mineradio Connector', '酷狗分享歌单导入需要 0.4.3 或更新版本的浏览器扩展。');
     return false;
@@ -18751,8 +18938,8 @@ async function doSearch(q, opts) {
     doPodcastSearch(q);
     return;
   }
-  if (looksLikeKugouShareInput(q)) {
-    await importKugouSharedPlaylist(q, opts);
+  if (detectPlaylistShareInput(q)) {
+    await importSharedPlaylist(q, opts);
     return;
   }
   var requestSeq = ++searchRequestSeq;
@@ -20733,12 +20920,18 @@ async function refreshUserPlaylists(force) {
     resetPlaylistPanelRenderLimit();
     var pod = document.getElementById('podcast-list');
     if (connectorState.available && (!homeDiscoverState.loaded || force)) await loadHomeDiscover(true);
-    userPlaylists = (homeDiscoverState.playlists || []).map(function(pl){
-      pl = Object.assign({}, pl);
-      pl.provider = pl.provider || 'netease';
-      pl.source = pl.source || 'netease-extension';
-      return pl;
-    });
+    var neteaseLists = (homeDiscoverState.playlists || []).map(function(pl){ return normalizePlaylistRecord(pl, 'netease'); });
+    var qqLists = [];
+    if (connectorSupportsQQPlaylists() && qqLoginStatus.loggedIn) {
+      try {
+        var qqRes = await connectorRequest('qq.playlists', {}, 12000);
+        qqLists = (qqRes.playlists || []).map(function(pl){ return normalizePlaylistRecord(pl, 'qq'); });
+      } catch (qqErr) {
+        console.warn('[ConnectorQQPlaylists]', qqErr);
+      }
+    }
+    qqPlaylists = qqLists;
+    userPlaylists = mergePlaylistRecords(neteaseLists.concat(qqLists, importedSharedPlaylists));
     myPodcastCollections = [];
     renderUserPlaylistsList({ animate: isPlaylistPanelVisibleForRender(), reset: true });
     if (pod) pod.innerHTML = '<div style="text-align:center;padding:14px 0;color:rgba(255,255,255,.28);font-size:11.5px">\u5176\u4ed6\u6e20\u9053\u6b63\u5728\u52a0\u5165\u4e2d</div>';
@@ -20786,10 +20979,10 @@ async function refreshUserPlaylists(force) {
 }
 var playlistPanelDetailState = { key: '', loading: false, playlist: null, tracks: [], token: 0, renderLimit: PLAYLIST_DETAIL_INITIAL_RENDER };
 function playlistPanelKey(provider, id) {
-  return (provider === 'qq' ? 'qq' : 'netease') + ':' + String(id || '');
+  return playlistProviderKey(provider) + ':' + String(id || '');
 }
 function playlistPanelProviderId(provider, id) {
-  return provider === 'qq' ? ('qq:' + id) : id;
+  return playlistProviderId(provider, id);
 }
 function playlistPanelDetailHtml(pl, provider) {
   var key = playlistPanelKey(provider, pl && pl.id);
@@ -20856,9 +21049,9 @@ function scrollPlaylistPanelDetailIntoView(key) {
 }
 async function openPlaylistPanelDetail(provider, pid, title) {
   if (!pid) return;
-  provider = provider === 'qq' ? 'qq' : 'netease';
+  provider = playlistProviderKey(provider);
   var key = playlistPanelKey(provider, pid);
-  var pl = userPlaylists.find(function(item){ return playlistPanelKey(item.provider === 'qq' ? 'qq' : 'netease', item.id) === key; }) || { id: pid, provider: provider, name: title || '歌单详情' };
+  var pl = userPlaylists.find(function(item){ return playlistPanelKey(item.provider, item.id) === key; }) || { id: pid, provider: provider, name: title || '歌单详情' };
   if (playlistPanelDetailState.key === key && !playlistPanelDetailState.loading && playlistPanelDetailState.tracks.length) {
     playlistPanelDetailState.key = '';
     playlistPanelDetailState.tracks = [];
@@ -20872,11 +21065,11 @@ async function openPlaylistPanelDetail(provider, pid, title) {
   renderPlaylistPanelDetailState();
   scrollPlaylistPanelDetailIntoView(key);
   try {
-    var r = provider === 'qq'
-      ? await apiJson('/api/qq/playlist/tracks?id=' + encodeURIComponent(pid))
-      : (LOCAL_FIRST_MODE && connectorState.available
-      ? await connectorRequest('netease.playlistTracks', { id: pid }, 14000)
-      : await apiJson('/api/playlist/tracks?id=' + encodeURIComponent(pid)));
+    var r = LOCAL_FIRST_MODE && connectorState.available
+      ? await loadConnectorPlaylistData(provider, pid, { timeoutMs: provider === 'kugou' ? 18000 : 16000 })
+      : (provider === 'qq'
+        ? await apiJson('/api/qq/playlist/tracks?id=' + encodeURIComponent(pid))
+        : await apiJson('/api/playlist/tracks?id=' + encodeURIComponent(pid)));
     if (playlistPanelDetailState.token !== token) return;
     playlistPanelDetailState.loading = false;
     playlistPanelDetailState.tracks = (r && r.tracks || []).map(cloneSong);
@@ -20896,7 +21089,7 @@ function playPlaylistPanelDetail() {
   var st = playlistPanelDetailState;
   if (!st || !st.key) return;
   var parts = st.key.split(':');
-  var provider = parts[0] === 'qq' ? 'qq' : 'netease';
+  var provider = playlistProviderKey(parts[0]);
   var pid = parts.slice(1).join(':');
   loadPlaylistIntoQueueById(playlistPanelProviderId(provider, pid), true, st.playlist && st.playlist.name || '');
 }
@@ -20966,9 +21159,9 @@ function renderUserPlaylistsList(opts) {
     return;
   }
   function playlistCardHtml(pl) {
-    var provider = pl.provider === 'qq' ? 'qq' : 'netease';
-    var providerLabel = provider === 'qq' ? 'QQ' : 'NE';
-    var thumb = pl.cover ? (provider === 'qq' ? pl.cover : (pl.cover + '?param=88y88')) : '';
+    var provider = playlistProviderKey(pl.provider);
+    var providerLabel = playlistProviderLabel(provider);
+    var thumb = pl.cover ? (provider === 'netease' ? coverUrlWithSize(pl.cover, 88) : pl.cover) : '';
     var imgTag = thumb ? '<img src="' + thumb + '" alt="" loading="lazy" decoding="async" onerror="this.style.opacity=0.2">' : '<div style="width:44px;height:44px;border-radius:8px;background:rgba(255,255,255,.06);flex-shrink:0"></div>';
     var key = playlistPanelKey(provider, pl.id);
     var expanded = playlistPanelDetailState.key === key ? ' expanded' : '';
@@ -20978,8 +21171,9 @@ function renderUserPlaylistsList(opts) {
     '</div>' + playlistPanelDetailHtml(pl, provider);
   }
   var groups = [
-    { key:'netease', label:'网易云歌单', items:userPlaylists.filter(function(pl){ return pl.provider !== 'qq'; }) },
-    { key:'qq', label:'QQ 音乐歌单', items:userPlaylists.filter(function(pl){ return pl.provider === 'qq'; }) }
+    { key:'netease', label:'网易云歌单', items:userPlaylists.filter(function(pl){ return playlistProviderKey(pl.provider) === 'netease'; }) },
+    { key:'qq', label:'QQ 音乐歌单', items:userPlaylists.filter(function(pl){ return playlistProviderKey(pl.provider) === 'qq'; }) },
+    { key:'kugou', label:'酷狗导入歌单', items:userPlaylists.filter(function(pl){ return playlistProviderKey(pl.provider) === 'kugou'; }) }
   ];
   if (opts.reset) resetPlaylistPanelRenderLimit();
   playlistPanelRenderLimit = Math.max(PLAYLIST_PANEL_BATCH_SIZE, Math.min(userPlaylists.length, playlistPanelRenderLimit || PLAYLIST_PANEL_BATCH_SIZE));
@@ -21169,14 +21363,14 @@ async function loadPlaylistIntoQueueById(id, autoplay, title) {
   homeSuppressed = false;
   updateEmptyHomeVisibility();
   showLoading();
-  var qqPlaylistId = String(id || '').indexOf('qq:') === 0 ? String(id).slice(3) : '';
+  var playlistReq = resolvePlaylistRequest(id);
   var r = null;
   try {
-    r = qqPlaylistId
-      ? await apiJson('/api/qq/playlist/tracks?id=' + encodeURIComponent(qqPlaylistId))
-      : (LOCAL_FIRST_MODE && connectorState.available
-      ? await connectorRequest('netease.playlistTracks', { id: id }, 14000)
-      : await apiJson('/api/playlist/tracks?id=' + encodeURIComponent(id)));
+    r = LOCAL_FIRST_MODE && connectorState.available
+      ? await loadConnectorPlaylistData(playlistReq.provider, playlistReq.id, { timeoutMs: playlistReq.provider === 'kugou' ? 18000 : 16000 })
+      : (playlistReq.provider === 'qq'
+        ? await apiJson('/api/qq/playlist/tracks?id=' + encodeURIComponent(playlistReq.id))
+        : await apiJson('/api/playlist/tracks?id=' + encodeURIComponent(playlistReq.id)));
   } catch (e) {
     console.warn('[PlaylistLoadApi]', id, e);
     showToast('歌单加载失败');
@@ -21189,8 +21383,8 @@ async function loadPlaylistIntoQueueById(id, autoplay, title) {
     playQueue = r.tracks.map(cloneSong).sort(function(a, b){
       return (b.playable !== false ? 1 : 0) - (a.playable !== false ? 1 : 0);
     });
-    if (!qqPlaylistId && isLikedPlaylistContext(id, title, r.playlist)) markSongsLiked(playQueue, true);
-    if (!qqPlaylistId) syncLikeStatusForSongs(playQueue);
+    if (playlistReq.provider === 'netease' && isLikedPlaylistContext(playlistReq.id, title, r.playlist)) markSongsLiked(playQueue, true);
+    if (playlistReq.provider === 'netease') syncLikeStatusForSongs(playQueue);
     currentIdx = 0;
     safeRenderQueuePanel('playlist-load');
     safeSwitchPlaylistTab('queue', 'playlist-load');
