@@ -5,7 +5,7 @@ Mineradio Web 是一个基于 [Mineradio](https://github.com/XxHuberrr/Mineradio
 这个项目不是为了替代原 Electron 客户端，而是提供一个更轻量的 Web 入口：打开网页即可体验 Mineradio 的视觉播放器、粒子歌词、DIY 效果、歌单架和多平台歌单导入。
 
 在线体验：[https://mrchenyh.github.io/Mineradio-Web/](https://mrchenyh.github.io/Mineradio-Web/)
-
+（官方已经上线了web版，快去体验把！）
 ## 项目亮点
 
 - **静态 Web 版**：可部署到 GitHub Pages，不需要用户自己启动本地 Node 服务。
