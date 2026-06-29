@@ -18186,6 +18186,7 @@ function scoreSongSearchResult(song, q, sourceIndex) {
   if (providerKey === 'audius') score += /[\u4e00-\u9fff]/.test(String(q || '')) ? -8 : 8;
   if (songHasKnownPlayableAudio(song)) score += providerKey === 'itunes' ? 2 : 16;
   if (song && song.playable === false) score -= 12;
+  if (song && song.playbackProbeFailed) score -= 10;
   if (song && song.trial) score -= providerKey === 'itunes' ? 16 : 42;
   if (!qAsksDerivative) {
     if (derivative) score -= artistMentioned ? 76 : 96;
@@ -18201,7 +18202,7 @@ function songSimilarityKey(song) {
   return simpleSearchNorm(song.name || song.title || '') + '|' + (artists[0] || simpleSearchNorm(song.artist || ''));
 }
 function songHasKnownPlayableAudio(song) {
-  return !!(song && (song.publicAudioUrl || song.previewUrl || song.streamUrl || (song.playbackChecked && song.playable !== false)));
+  return !!(song && (song.publicAudioUrl || song.previewUrl || song.streamUrl || (song.playbackChecked && song.playable !== false && !song.playbackProbeFailed)));
 }
 function mergeSongSearchResults(neteaseSongs, qqSongs, limit, q) {
   var out = [];
@@ -18472,6 +18473,8 @@ function normalizeConnectorSong(song) {
     playable: song.playable !== false,
     playbackChecked: !!song.playbackChecked,
     playbackCode: Number(song.playbackCode || 0) || 0,
+    playbackProbeFailed: !!song.playbackProbeFailed,
+    playbackMessage: song.playbackMessage || '',
     publicAudioUrl: song.probedAudioUrl || song.publicAudioUrl || ''
   });
 }
@@ -19350,6 +19353,7 @@ function fallbackCandidateScore(source, candidate, index) {
   else if (normalizeMatchText(source && source.name) === normalizeMatchText(candidate && candidate.name)) score += 42;
   if (songHasKnownPlayableAudio(candidate)) score += 18;
   if (candidate && candidate.playable === false) score -= 80;
+  if (candidate && candidate.playbackProbeFailed) score -= 12;
   if (candidate && candidate.trial) score -= 42;
   if (songProviderKey(candidate) === songProviderKey(source)) score -= 28;
   score -= (index || 0) * 0.5;

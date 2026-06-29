@@ -639,9 +639,10 @@ async function enrichNeteaseSongs(songs) {
     if (!item) return;
     song.playbackChecked = true;
     song.playbackCode = item.code || 0;
-    song.playable = !!item.url && Number(item.code || 0) === 200;
+    song.playable = true;
     song.previewOnly = false;
-    if (item.url) song.probedAudioUrl = ensureHttpsAudioUrl(item.url);
+    if (item.url && Number(item.code || 0) === 200) song.probedAudioUrl = ensureHttpsAudioUrl(item.url);
+    else song.playbackProbeFailed = true;
   });
   return songs;
 }
@@ -973,6 +974,26 @@ function qqCookieLoginReady(obj) {
     obj.luin || obj.pt2gguin || obj.o_cookie || obj.openid || obj.login_type || obj.tmeLoginType);
 }
 
+function qqTabProbeLooksLoggedIn(probe) {
+  if (!probe || probe.error) return false;
+  return !!(probe.hasLoginText ||
+    (Array.isArray(probe.cookieNames) && probe.cookieNames.length) ||
+    (Array.isArray(probe.storageKeys) && probe.storageKeys.length));
+}
+
+function mergeQQTabProbeStatus(profile, probe) {
+  profile = profile || {};
+  const tabLoggedIn = qqTabProbeLooksLoggedIn(probe);
+  profile.tabLoggedIn = tabLoggedIn;
+  if (tabLoggedIn && !profile.loggedIn) {
+    profile.loggedIn = true;
+    profile.partialLogin = true;
+    profile.stale = true;
+    profile.nickname = profile.nickname || 'QQ Music';
+  }
+  return profile;
+}
+
 async function qqMusicTabReady() {
   try {
     const tabs = await chromeTabsQuery({ url: [QQ_ORIGIN + '/*'] });
@@ -1196,7 +1217,7 @@ async function qqStatus() {
   const cookieObj = await qqCookieObjectFromBrowser();
   const tabReady = await qqMusicTabReady();
   const tabProbe = await qqTabLoginProbe();
-  const fallback = normalizeQQProfile(null, cookieObj);
+  const fallback = mergeQQTabProbeStatus(normalizeQQProfile(null, cookieObj), tabProbe);
   fallback.musicTabReady = tabReady;
   fallback.cookieCount = Object.keys(cookieObj || {}).length;
   fallback.tabProbe = tabProbe;
@@ -1216,7 +1237,7 @@ async function qqStatus() {
       platform: 'yqq.json',
       needNewCode: '0'
     }, { cookieObj });
-    return Object.assign(normalizeQQProfile(body, cookieObj), {
+    return Object.assign(mergeQQTabProbeStatus(normalizeQQProfile(body, cookieObj), tabProbe), {
       musicTabReady: tabReady,
       cookieCount: fallback.cookieCount,
       tabProbe
@@ -1346,7 +1367,9 @@ async function qqSongUrl(payload) {
   const musicKey = qqCookieMusicKey(cookieObj);
   const playbackKey = qqCookiePlaybackKey(cookieObj);
   const authKey = playbackKey;
-  const loggedIn = qqCookieLoginReady(cookieObj);
+  const cookieLoggedIn = qqCookieLoginReady(cookieObj);
+  const tabProbe = cookieLoggedIn ? null : await qqTabLoginProbe();
+  const loggedIn = cookieLoggedIn || qqTabProbeLooksLoggedIn(tabProbe);
   const mediaIds = [];
   const mediaMid = String(song.mediaMid || song.media_mid || '').trim();
   if (mediaMid) mediaIds.push(mediaMid);
@@ -1395,6 +1418,7 @@ async function qqSongUrl(payload) {
     playable: false,
     loggedIn,
     playbackKeyReady: !!(uin && playbackKey),
+    tabLoggedIn: qqTabProbeLooksLoggedIn(tabProbe),
     reason: !loggedIn ? 'login_required' : (!playbackKey ? 'playback_key_missing' : 'url_unavailable'),
     message,
     qqCode: code
@@ -1407,18 +1431,21 @@ async function enrichQQSongs(songs) {
     try {
       const playback = await qqSongUrl(song);
       song.playbackChecked = true;
-      song.playable = !!playback.url;
+      song.playable = true;
       song.playbackCode = playback.qqCode || 0;
       if (playback.url) song.probedAudioUrl = playback.url;
+      else song.playbackProbeFailed = true;
       if (playback.message) song.playbackMessage = playback.message;
       checked.push(song);
     } catch (err) {
       song.playbackChecked = true;
-      song.playable = false;
+      song.playable = true;
+      song.playbackProbeFailed = true;
       song.playbackMessage = err && err.message || 'QQ Music did not return a playable URL';
+      checked.push(song);
     }
   }
-  return checked.filter(song => song.playable !== false);
+  return checked;
 }
 
 async function qqSearch(payload) {
@@ -1567,20 +1594,23 @@ async function enrichKugouSongs(songs) {
     try {
       const playback = await kugouSongUrl(song);
       song.playbackChecked = true;
-      song.playable = !!playback.url;
+      song.playable = true;
       song.playbackCode = playback.code || 0;
       if (playback.url) song.probedAudioUrl = playback.url;
+      else song.playbackProbeFailed = true;
       if (playback.cover) song.cover = song.cover || playback.cover;
       if (playback.lyric) song.lyric = playback.lyric;
       checked.push(song);
     } catch (err) {
       song.playbackChecked = true;
-      song.playable = false;
+      song.playable = true;
       song.playbackCode = 0;
+      song.playbackProbeFailed = true;
       song.playbackMessage = err && err.message || '酷狗未返回可播放地址';
+      checked.push(song);
     }
   }
-  return checked.filter(song => song.playable !== false);
+  return checked;
 }
 
 async function kugouSongUrl(payload) {
