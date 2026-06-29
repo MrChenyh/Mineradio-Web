@@ -22,6 +22,10 @@ const NETEASE_HOME_PLAYLIST_RENDER_LIMIT = 48;
 const NETEASE_PLAYLIST_TRACK_LIMIT = 240;
 const QQ_PLAYLIST_TRACK_LIMIT = 240;
 const KUGOU_SHARED_PLAYLIST_TRACK_LIMIT = 500;
+const NETEASE_AUTH_STORE_KEY = 'mineradio.neteaseAuth.v1';
+const QQ_AUTH_STORE_KEY = 'mineradio.qqAuth.v1';
+const COOKIE_ATTRIBUTE_NAMES = new Set(['path', 'domain', 'expires', 'max-age', 'samesite', 'secure', 'httponly']);
+let kugouCapabilityCache = { key: '', checkedAt: 0, result: null };
 
 function jsonResponse(requestId, data) {
   return Object.assign({ requestId, ok: true }, data || {});
@@ -149,12 +153,14 @@ function headersForUrl(url, extra) {
 
 async function fetchText(url, options) {
   options = options || {};
+  const optionHeaders = options.headers || {};
   const init = Object.assign({
     credentials: 'include',
     cache: 'no-store',
     referrer: options.referrer || NETEASE_ORIGIN + '/',
-    headers: headersForUrl(url)
+    headers: Object.assign(headersForUrl(url), optionHeaders)
   }, options || {});
+  init.headers = Object.assign(headersForUrl(url), optionHeaders);
   const timeoutMs = Number(init.timeoutMs || 0) || 8000;
   delete init.timeoutMs;
   delete init.cookieObj;
@@ -172,6 +178,68 @@ async function fetchJson(url, options) {
   } catch (err) {
     throw new Error('Invalid JSON from music.163.com');
   }
+}
+
+function neteaseAuthFieldPattern() {
+  return /^(MUSIC_U|__csrf|NMTID|MUSIC_A|os|appver|channel|rememberLogin|_ntes_nuid|_ntes_nnid)$/i;
+}
+
+async function neteaseCookieObjectFromBrowser() {
+  const urls = [NETEASE_ORIGIN + '/', 'http://music.163.com/', 'https://music.163.com/'];
+  const entries = [];
+  for (const url of urls) {
+    try { entries.push(...await chrome.cookies.getAll({ url })); } catch (err) {}
+  }
+  const obj = {};
+  entries.forEach(cookie => {
+    if (!cookie || !cookie.name || !neteaseAuthFieldPattern().test(cookie.name)) return;
+    obj[cookie.name] = cookie.value || '';
+  });
+  return obj;
+}
+
+async function readStoredNeteaseAuth() {
+  const value = await storageLocalGet(NETEASE_AUTH_STORE_KEY);
+  const item = value && value[NETEASE_AUTH_STORE_KEY] || null;
+  return item && item.cookies ? item : null;
+}
+
+async function saveNeteaseAuthObject(cookieObj, source) {
+  const cookies = sanitizeCookieObject(cookieObj, neteaseAuthFieldPattern());
+  if (!Object.keys(cookies).length) return null;
+  const item = { provider: 'netease', cookies, savedAt: Date.now(), source: source || 'browser' };
+  await storageLocalSet({ [NETEASE_AUTH_STORE_KEY]: item });
+  return item;
+}
+
+async function neteaseAuthObjectFromBrowser() {
+  const browserObj = await promiseWithTimeout(neteaseCookieObjectFromBrowser(), 2200, {});
+  const stored = await readStoredNeteaseAuth();
+  const out = Object.assign({}, stored && stored.cookies || {}, browserObj || {});
+  if (out.MUSIC_U || Object.keys(browserObj || {}).length) await saveNeteaseAuthObject(out, Object.keys(browserObj || {}).length ? 'browser' : 'cache');
+  if (stored && stored.savedAt) out.__authCachedAt = stored.savedAt;
+  out.__authCached = !!(stored && stored.cookies && Object.keys(stored.cookies).length);
+  return out;
+}
+
+async function neteaseFetchJson(url, options) {
+  const cookieObj = options && options.cookieObj || await neteaseAuthObjectFromBrowser();
+  const cookieHeader = serializeCookieObject(cookieObj);
+  const headers = cookieHeader ? { Cookie: cookieHeader } : {};
+  return fetchJson(url, Object.assign({}, options || {}, { headers: Object.assign(headers, options && options.headers || {}) }));
+}
+
+async function neteaseSaveAuth(payload) {
+  const cookieText = String(payload && (payload.cookie || payload.cookies || payload.text || payload.input) || '').trim();
+  const cookieObj = cookieText ? parseCookieString(cookieText) : (payload && payload.cookies || {});
+  const stored = await saveNeteaseAuthObject(cookieObj, 'manual');
+  if (!stored) return { status: { provider: 'netease', loggedIn: false, error: 'missing_cookie' } };
+  return { status: await neteaseStatus() };
+}
+
+async function neteaseClearAuth() {
+  await storageLocalRemove(NETEASE_AUTH_STORE_KEY);
+  return { ok: true };
 }
 
 function formBody(params) {
@@ -228,6 +296,54 @@ function promiseWithTimeout(promise, ms, fallback) {
       resolve(typeof fallback === 'function' ? fallback(err) : fallback);
     });
   });
+}
+
+function storageLocalGet(keys) {
+  return new Promise(resolve => {
+    if (!chrome.storage || !chrome.storage.local) return resolve({});
+    try {
+      chrome.storage.local.get(keys, value => {
+        if (chrome.runtime.lastError) return resolve({});
+        resolve(value || {});
+      });
+    } catch (err) {
+      resolve({});
+    }
+  });
+}
+
+function storageLocalSet(value) {
+  return new Promise(resolve => {
+    if (!chrome.storage || !chrome.storage.local) return resolve(false);
+    try {
+      chrome.storage.local.set(value || {}, () => resolve(!chrome.runtime.lastError));
+    } catch (err) {
+      resolve(false);
+    }
+  });
+}
+
+function storageLocalRemove(keys) {
+  return new Promise(resolve => {
+    if (!chrome.storage || !chrome.storage.local) return resolve(false);
+    try {
+      chrome.storage.local.remove(keys, () => resolve(!chrome.runtime.lastError));
+    } catch (err) {
+      resolve(false);
+    }
+  });
+}
+
+function sanitizeCookieObject(obj, fieldPattern) {
+  const out = {};
+  Object.keys(obj || {}).forEach(key => {
+    if (!key || COOKIE_ATTRIBUTE_NAMES.has(String(key).toLowerCase())) return;
+    if (fieldPattern && !fieldPattern.test(key)) return;
+    const value = obj[key];
+    if (value == null || String(value) === '') return;
+    out[key] = String(value);
+  });
+  return out;
 }
 
 async function fetchTextWithTimeout(url, init, timeoutMs) {
@@ -325,7 +441,7 @@ async function neteaseFetchPlayerUrlV1(ids, level) {
   };
   const tabData = await neteaseFetchJsonInMusicTab('/api/song/enhance/player/url/v1', params, 'POST');
   if (tabData) return tabData;
-  return fetchJson(NETEASE_ORIGIN + '/api/song/enhance/player/url/v1', {
+  return neteaseFetchJson(NETEASE_ORIGIN + '/api/song/enhance/player/url/v1', {
     method: 'POST',
     body: formBody(params),
     timeoutMs: 6500,
@@ -341,7 +457,7 @@ async function neteaseFetchPlayerUrlLegacy(ids, br) {
     ids: '[' + ids.map(String).join(',') + ']',
     br: String(br || 128000)
   });
-  return fetchJson(NETEASE_ORIGIN + '/api/song/enhance/player/url?' + params.toString(), { timeoutMs: 6500 });
+  return neteaseFetchJson(NETEASE_ORIGIN + '/api/song/enhance/player/url?' + params.toString(), { timeoutMs: 6500 });
 }
 
 function artistNames(list) {
@@ -598,26 +714,115 @@ async function kugouFetchJson(url, options) {
   }
 }
 
+function firstPositiveNumberFrom(objects, keys) {
+  for (const obj of objects || []) {
+    if (!obj || typeof obj !== 'object') continue;
+    for (const key of keys || []) {
+      const value = Number(obj[key] || 0) || 0;
+      if (value > 0) return value;
+    }
+  }
+  return 0;
+}
+
+function collectVipStringValues(value, out, depth) {
+  out = out || [];
+  depth = depth || 0;
+  if (!value || depth > 2) return out;
+  if (typeof value === 'string') {
+    if (/vip|svip|会员|黑胶|豪华|绿钻/i.test(value)) out.push(value);
+    return out;
+  }
+  if (Array.isArray(value)) {
+    value.forEach(item => collectVipStringValues(item, out, depth + 1));
+    return out;
+  }
+  if (typeof value === 'object') {
+    Object.keys(value).forEach(key => {
+      if (/vip|member|level|label|type/i.test(key)) collectVipStringValues(value[key], out, depth + 1);
+    });
+  }
+  return out;
+}
+
+function normalizeNeteaseVip(profile, account, extra) {
+  profile = profile || {};
+  account = account || {};
+  extra = extra || {};
+  const vipInfo = profile.vipInfo || profile.vipinfo || account.vipInfo || account.vipinfo || extra.vipInfo || extra.vipinfo || {};
+  const objects = [account, profile, vipInfo, extra];
+  const vipType = firstPositiveNumberFrom(objects, [
+    'vipType', 'vip_type', 'viptype', 'musicVipType', 'music_vip_type',
+    'musicVipLevel', 'music_vip_level', 'redVipLevel', 'red_vip_level',
+    'blackVipLevel', 'black_vip_level', 'luxuryVipLevel', 'luxury_vip_level',
+    'svipType', 'svip_type'
+  ]);
+  const text = collectVipStringValues({ account, profile, vipInfo, extra }, [], 0).join(' ').toLowerCase();
+  const svipFlag = objects.some(obj => obj && (
+    obj.isSvip === true || obj.is_svip === true || obj.svip === true ||
+    Number(obj.isSvip || obj.is_svip || obj.svip || obj.svipType || obj.svip_type || 0) > 0
+  )) || /svip|supervip|super_vip|blackvip|black_vip|黑胶svip|超级会员/.test(text);
+  const vipFlag = objects.some(obj => obj && (
+    obj.isVip === true || obj.is_vip === true || obj.vip === true ||
+    Number(obj.isVip || obj.is_vip || obj.vip || obj.vipFlag || obj.vipflag || 0) > 0
+  )) || /vip|黑胶|会员/.test(text);
+  const isSvip = svipFlag || vipType >= 10;
+  const isVip = isSvip || vipFlag || vipType > 0;
+  const vipLevel = isSvip ? 'svip' : (isVip ? 'vip' : 'none');
+  return {
+    vipType,
+    vipLevel,
+    isVip,
+    isSvip,
+    vipLabel: vipLevel === 'svip' ? 'SVIP' : (vipLevel === 'vip' ? 'VIP' : '无VIP')
+  };
+}
+
+function normalizeNeteaseLoginInfo(profile, account, extra) {
+  profile = profile || {};
+  account = account || {};
+  extra = extra || {};
+  const userId = profile.userId || profile.user_id || profile.id || account.userId || account.id || '';
+  const vip = normalizeNeteaseVip(profile, account, extra);
+  return Object.assign({
+    provider: 'netease',
+    loggedIn: !!(userId || userId === 0),
+    userId,
+    nickname: profile.nickname || profile.userName || profile.name || '',
+    avatar: profile.avatarUrl || profile.avatar || ''
+  }, vip);
+}
+
 async function neteaseStatus() {
-  const musicU = await chrome.cookies.get({ url: NETEASE_ORIGIN + '/', name: 'MUSIC_U' });
-  const csrf = await chrome.cookies.get({ url: NETEASE_ORIGIN + '/', name: '__csrf' });
+  const cookieObj = await promiseWithTimeout(neteaseAuthObjectFromBrowser(), 2600, {});
+  const musicU = cookieObj.MUSIC_U || '';
+  const csrf = cookieObj.__csrf || '';
   let profile = null;
-  if (musicU && musicU.value) {
+  let account = null;
+  let body = null;
+  if (musicU) {
     try {
-      const data = await fetchJson(NETEASE_ORIGIN + '/api/nuser/account/get?t=' + Date.now());
-      profile = data && (data.profile || data.account || data.data && data.data.profile) || null;
+      const data = await neteaseFetchJson(NETEASE_ORIGIN + '/api/nuser/account/get?t=' + Date.now(), { cookieObj, timeoutMs: 4200 });
+      body = data || null;
+      profile = data && (data.profile || data.data && data.data.profile) || null;
+      account = data && (data.account || data.data && data.data.account) || null;
     } catch (err) {
       console.warn('[Mineradio Connector] NetEase profile failed', err);
     }
   }
-  return {
+  const info = normalizeNeteaseLoginInfo(profile, account, body);
+  return Object.assign({}, info, {
     provider: 'netease',
-    loggedIn: !!(musicU && musicU.value),
-    hasCsrf: !!(csrf && csrf.value),
-    nickname: profile && (profile.nickname || profile.userName || profile.name) || '',
-    userId: profile && (profile.userId || profile.id) || '',
-    avatar: profile && (profile.avatarUrl || profile.avatar) || ''
-  };
+    loggedIn: !!musicU,
+    hasCookie: !!Object.keys(cookieObj || {}).filter(key => key.indexOf('__auth') !== 0).length,
+    hasCsrf: !!csrf,
+    authCached: !!cookieObj.__authCached,
+    authCachedAt: Number(cookieObj.__authCachedAt || 0) || 0,
+    cacheAgeMs: cookieObj.__authCachedAt ? Date.now() - Number(cookieObj.__authCachedAt || 0) : 0,
+    nickname: info.nickname || '',
+    userId: info.userId || '',
+    avatar: info.avatar || ''
+  });
 }
 
 function normalizeNeteasePlaylist(pl, tag) {
@@ -644,9 +849,9 @@ async function neteaseHome() {
     return { loggedIn: false, user: null, dailySongs: [], playlists: [], podcasts: [], mode: 'starter', updatedAt: Date.now() };
   }
   const tasks = await Promise.allSettled([
-    fetchJson(NETEASE_ORIGIN + '/api/v3/discovery/recommend/songs?t=' + Date.now()),
-    fetchJson(NETEASE_ORIGIN + '/api/v1/discovery/recommend/resource?t=' + Date.now()),
-    status.userId ? fetchJson(NETEASE_ORIGIN + '/api/user/playlist?' + new URLSearchParams({ uid: status.userId, limit: String(NETEASE_HOME_PLAYLIST_LIMIT), offset: '0', t: Date.now().toString() }).toString()) : Promise.resolve({ playlist: [] })
+    neteaseFetchJson(NETEASE_ORIGIN + '/api/v3/discovery/recommend/songs?t=' + Date.now()),
+    neteaseFetchJson(NETEASE_ORIGIN + '/api/v1/discovery/recommend/resource?t=' + Date.now()),
+    status.userId ? neteaseFetchJson(NETEASE_ORIGIN + '/api/user/playlist?' + new URLSearchParams({ uid: status.userId, limit: String(NETEASE_HOME_PLAYLIST_LIMIT), offset: '0', t: Date.now().toString() }).toString()) : Promise.resolve({ playlist: [] })
   ]);
   const dailyBody = tasks[0].status === 'fulfilled' ? tasks[0].value || {} : {};
   const dailyRaw = dailyBody.data && (dailyBody.data.dailySongs || dailyBody.data.recommend) || dailyBody.recommend || [];
@@ -677,7 +882,7 @@ async function neteaseHome() {
 async function neteasePlaylistTracks(payload) {
   const id = String(payload && payload.id || '').trim();
   if (!id) throw new Error('Missing playlist id');
-  const data = await fetchJson(NETEASE_ORIGIN + '/api/v6/playlist/detail?' + new URLSearchParams({ id, n: '1000', s: '8', t: Date.now().toString() }).toString());
+  const data = await neteaseFetchJson(NETEASE_ORIGIN + '/api/v6/playlist/detail?' + new URLSearchParams({ id, n: '1000', s: '8', t: Date.now().toString() }).toString());
   const playlist = data && data.playlist || {};
   let tracks = (playlist.tracks || []).map(normalizeSong).filter(song => song.id && song.name).slice(0, NETEASE_PLAYLIST_TRACK_LIMIT);
   tracks = await enrichNeteaseSongs(tracks);
@@ -694,7 +899,7 @@ async function neteaseSearch(payload) {
     limit: String(limit),
     offset: '0'
   }).toString();
-  const data = await fetchJson(url);
+  const data = await neteaseFetchJson(url);
   let songs = ((data.result && data.result.songs) || []).map(normalizeSong).filter(song => song.id && song.name);
   songs = await enrichNeteaseSongs(songs);
   return { songs };
@@ -732,7 +937,7 @@ async function neteaseSongDetails(ids) {
   const out = new Map();
   if (!ids.length) return out;
   try {
-    const data = await fetchJson(NETEASE_ORIGIN + '/api/song/detail?ids=' + encodeURIComponent(JSON.stringify(ids)));
+    const data = await neteaseFetchJson(NETEASE_ORIGIN + '/api/song/detail?ids=' + encodeURIComponent(JSON.stringify(ids)));
     ((data && data.songs) || []).forEach(song => out.set(Number(song.id), song));
   } catch (err) {
     console.warn('[Mineradio Connector] detail enrich failed', err);
@@ -771,7 +976,7 @@ async function neteaseLyric(payload) {
     kv: '1',
     tv: '-1'
   }).toString();
-  const data = await fetchJson(url);
+  const data = await neteaseFetchJson(url);
   return {
     lyric: data && data.lrc && data.lrc.lyric || '',
     tlyric: data && data.tlyric && data.tlyric.lyric || ''
@@ -1018,6 +1223,7 @@ function parseCookieString(raw) {
 
 function serializeCookieObject(obj) {
   return Object.keys(obj || {})
+    .filter(key => key && !COOKIE_ATTRIBUTE_NAMES.has(String(key).toLowerCase()) && key.indexOf('__auth') !== 0)
     .filter(key => obj[key] != null && String(obj[key]) !== '')
     .map(key => key + '=' + String(obj[key]))
     .join('; ');
@@ -1053,6 +1259,33 @@ function mergeQQAuthFields(target, source) {
     if (target[key] == null || String(target[key]) === '' || /key|token|skey|openid/i.test(key)) target[key] = String(source[key]);
   });
   return target;
+}
+
+async function readStoredQQAuth() {
+  const value = await storageLocalGet(QQ_AUTH_STORE_KEY);
+  const item = value && value[QQ_AUTH_STORE_KEY] || null;
+  return item && item.cookies ? item : null;
+}
+
+async function saveQQAuthObject(cookieObj, source) {
+  const cookies = sanitizeCookieObject(cookieObj, qqAuthFieldPattern());
+  if (!Object.keys(cookies).length) return null;
+  const item = { provider: 'qq', cookies, savedAt: Date.now(), source: source || 'browser' };
+  await storageLocalSet({ [QQ_AUTH_STORE_KEY]: item });
+  return item;
+}
+
+async function qqSaveAuth(payload) {
+  const cookieText = String(payload && (payload.cookie || payload.cookies || payload.text || payload.input) || '').trim();
+  const cookieObj = cookieText ? parseCookieString(cookieText) : (payload && payload.cookies || {});
+  const stored = await saveQQAuthObject(cookieObj, 'manual');
+  if (!stored) return { status: { provider: 'qq', loggedIn: false, error: 'missing_cookie' } };
+  return { status: await qqStatus() };
+}
+
+async function qqClearAuth() {
+  await storageLocalRemove(QQ_AUTH_STORE_KEY);
+  return { ok: true };
 }
 
 function qqCookieMusicKey(obj) {
@@ -1307,7 +1540,14 @@ async function qqAuthObjectFromMusicTab() {
 async function qqAuthObjectFromBrowser() {
   const cookieObj = await promiseWithTimeout(qqCookieObjectFromBrowser(), 2200, {});
   const tabObj = await promiseWithTimeout(qqAuthObjectFromMusicTab(), 2600, {});
-  return mergeQQAuthFields(cookieObj, tabObj);
+  const stored = await readStoredQQAuth();
+  const merged = mergeQQAuthFields(mergeQQAuthFields({}, stored && stored.cookies || {}), cookieObj);
+  mergeQQAuthFields(merged, tabObj);
+  const liveCount = Object.keys(cookieObj || {}).length + Object.keys(tabObj || {}).length;
+  if (qqCookieLoginReady(merged) || liveCount) await saveQQAuthObject(merged, liveCount ? 'browser' : 'cache');
+  if (stored && stored.savedAt) merged.__authCachedAt = stored.savedAt;
+  merged.__authCached = !!(stored && stored.cookies && Object.keys(stored.cookies).length);
+  return merged;
 }
 
 function qqHeaders(extra) {
@@ -1407,20 +1647,40 @@ function normalizeQQProfile(body, cookieObj) {
   const openId = qqCookieOpenId(cookieObj);
   const data = body && (body.data || body.profile || body.creator || body.result) || {};
   const creator = data.creator || data.user || data.profile || data || {};
+  const vipInfo = data.vipInfo || data.vipinfo || data.vip || creator.vipInfo || creator.vipinfo || {};
   const profileNick = creator.nick || creator.nickname || creator.name || creator.hostname || creator.title || '';
   const profileAvatar = creator.headpic || creator.headurl || creator.avatar || creator.avatarUrl || creator.logo || creator.image || '';
   const nick = profileNick || qqCookieNickname(cookieObj, uin) || '';
   const avatar = profileAvatar || qqCookieAvatar(cookieObj, uin);
+  let vipType = Number(
+    cookieObj.vipType || cookieObj.vip_type ||
+    data.vipType || data.vip_type || data.viptype || data.music_vip_level || data.green_vip_level || data.luxury_vip_level ||
+    creator.vipType || creator.vip_type || creator.music_vip_level || creator.green_vip_level || creator.luxury_vip_level ||
+    vipInfo.vipType || vipInfo.vip_type || vipInfo.music_vip_level || vipInfo.green_vip_level || vipInfo.luxury_vip_level || 0
+  ) || 0;
+  if (!vipType) {
+    const vipFlag = data.isVip || data.is_vip || data.vipFlag || data.vipflag || creator.isVip || creator.is_vip || vipInfo.isVip || vipInfo.is_vip || vipInfo.vipFlag;
+    if (vipFlag === true || Number(vipFlag) > 0 || String(vipFlag || '').toLowerCase() === 'true') vipType = 1;
+  }
+  const vipLevel = vipType > 0 ? 'vip' : 'none';
   return {
     provider: 'qq',
     loggedIn: qqCookieLoginReady(cookieObj),
     userId: uin,
     nickname: nick || (uin ? ('QQ ' + uin) : 'QQ Music'),
     avatar,
+    vipType,
+    vipLevel,
+    isVip: vipType > 0,
+    isSvip: false,
+    vipLabel: vipLevel === 'vip' ? 'VIP' : '无VIP',
     hasCookie: !!Object.keys(cookieObj).length,
     loginCookieNames: qqCookieDiagnosticNames(cookieObj),
     playbackKeyReady: !!qqCookiePlaybackKey(cookieObj),
-    openIdReady: !!openId
+    openIdReady: !!openId,
+    authCached: !!cookieObj.__authCached,
+    authCachedAt: Number(cookieObj.__authCachedAt || 0) || 0,
+    cacheAgeMs: cookieObj.__authCachedAt ? Date.now() - Number(cookieObj.__authCachedAt || 0) : 0
   };
 }
 
@@ -1995,13 +2255,53 @@ async function qqLyric(payload) {
 
 async function kugouStatus() {
   const ctx = await kugouContext();
+  const probe = await promiseWithTimeout(kugouPlaybackCapabilityProbe(ctx), 6500, {
+    playbackReady: false,
+    playbackProbeFailed: true,
+    playbackProbeMessage: 'kugou_probe_timeout'
+  });
+  const vipType = Number(ctx.vipType || 0) || 0;
   return {
     provider: 'kugou',
     loggedIn: ctx.loggedIn,
     hasToken: !!ctx.token,
     userId: ctx.userid === '0' ? '' : ctx.userid,
-    vipType: ctx.vipType
+    vipType,
+    vipLevel: vipType > 0 ? 'vip' : 'none',
+    isVip: vipType > 0,
+    isSvip: false,
+    vipLabel: vipType > 0 ? 'VIP' : '无VIP',
+    playbackReady: !!(probe && probe.playbackReady),
+    playbackProbeFailed: !!(probe && probe.playbackProbeFailed),
+    playbackProbeMessage: probe && probe.playbackProbeMessage || '',
+    capabilityLabel: probe && probe.playbackReady ? 'playback' : (ctx.loggedIn ? 'login_only' : 'shared_playlist_only')
   };
+}
+
+async function kugouPlaybackCapabilityProbe(ctx) {
+  ctx = ctx || await kugouContext();
+  const cacheKey = [ctx.userid || '0', ctx.token ? 'token' : 'anon', ctx.vipType || 0].join('|');
+  if (kugouCapabilityCache.key === cacheKey && kugouCapabilityCache.result && Date.now() - kugouCapabilityCache.checkedAt < 5 * 60 * 1000) {
+    return kugouCapabilityCache.result;
+  }
+  if (!ctx.loggedIn || !ctx.token) {
+    const result = { playbackReady: false, playbackProbeFailed: true, playbackProbeMessage: 'login_or_token_missing' };
+    kugouCapabilityCache = { key: cacheKey, checkedAt: Date.now(), result };
+    return result;
+  }
+  try {
+    const search = await kugouSearch({ q: '周杰伦 晴天', limit: 3 });
+    const playable = (search.songs || []).find(song => song && song.probedAudioUrl && song.playable !== false);
+    const result = playable
+      ? { playbackReady: true, playbackProbeFailed: false, playbackProbeMessage: '', probeSong: playable.name || '' }
+      : { playbackReady: false, playbackProbeFailed: true, playbackProbeMessage: 'url_unavailable' };
+    kugouCapabilityCache = { key: cacheKey, checkedAt: Date.now(), result };
+    return result;
+  } catch (err) {
+    const result = { playbackReady: false, playbackProbeFailed: true, playbackProbeMessage: err && err.message || String(err) };
+    kugouCapabilityCache = { key: cacheKey, checkedAt: Date.now(), result };
+    return result;
+  }
 }
 
 async function kugouSearch(payload) {
@@ -2045,7 +2345,7 @@ async function enrichKugouSongs(songs) {
     try {
       const playback = await kugouSongUrl(song);
       song.playbackChecked = true;
-      song.playable = true;
+      song.playable = !!playback.url;
       song.playbackCode = playback.code || 0;
       if (playback.url) song.probedAudioUrl = playback.url;
       else song.playbackProbeFailed = true;
@@ -2054,7 +2354,7 @@ async function enrichKugouSongs(songs) {
       checked.push(song);
     } catch (err) {
       song.playbackChecked = true;
-      song.playable = true;
+      song.playable = false;
       song.playbackCode = 0;
       song.playbackProbeFailed = true;
       song.playbackMessage = err && err.message || '酷狗未返回可播放地址';
@@ -2130,6 +2430,8 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
   (async function () {
     if (action === 'ping') return jsonResponse(requestId, { version: chrome.runtime.getManifest().version });
     if (action === 'netease.status') return jsonResponse(requestId, { status: await neteaseStatus() });
+    if (action === 'netease.saveAuth') return jsonResponse(requestId, await neteaseSaveAuth(payload));
+    if (action === 'netease.clearAuth') return jsonResponse(requestId, await neteaseClearAuth());
     if (action === 'netease.home') return jsonResponse(requestId, await neteaseHome(payload));
     if (action === 'netease.playlistTracks') return jsonResponse(requestId, await neteasePlaylistTracks(payload));
     if (action === 'netease.sharedPlaylist') return jsonResponse(requestId, await neteaseSharedPlaylist(payload));
@@ -2142,6 +2444,8 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     if (action === 'kugou.lyric') return jsonResponse(requestId, await kugouLyric(payload));
     if (action === 'kugou.songUrl') return jsonResponse(requestId, await kugouSongUrl(payload));
     if (action === 'qq.status') return jsonResponse(requestId, { status: await qqStatus() });
+    if (action === 'qq.saveAuth') return jsonResponse(requestId, await qqSaveAuth(payload));
+    if (action === 'qq.clearAuth') return jsonResponse(requestId, await qqClearAuth());
     if (action === 'qq.playlists') return jsonResponse(requestId, await qqPlaylists(payload));
     if (action === 'qq.playlistTracks') return jsonResponse(requestId, await qqPlaylistTracks(payload));
     if (action === 'qq.sharedPlaylist') return jsonResponse(requestId, await qqSharedPlaylist(payload));
