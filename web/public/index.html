@@ -1987,13 +1987,11 @@ html.control-glass-svg-ok #visual-guide-btn:hover{
   <div id="search-stack">
     <div id="search-box">
       <svg id="search-icon" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-      <input id="search-input" type="text" placeholder="搜索公共源，或导入本地歌曲..." autocomplete="off" spellcheck="false">
+      <input id="search-input" type="text" placeholder="搜索歌曲 / 歌手，或粘贴歌单链接" autocomplete="off" spellcheck="false">
     </div>
-    <div id="search-mode-tabs" class="search-mode-tabs" role="tablist" aria-label="Search mode">
-      <button id="search-mode-song" class="active" type="button" onclick="setSearchMode('song')" aria-selected="true">公共源</button>
-      <button id="search-mode-netease" type="button" onclick="setSearchMode('netease')" aria-selected="false">NE</button>
-      <button id="search-mode-qq" type="button" onclick="setSearchMode('qq')" aria-selected="false">QQ</button>
-      <button id="search-mode-podcast" type="button" onclick="setSearchMode('podcast')" aria-selected="false">Podcast</button>
+    <div id="search-mode-tabs" class="search-mode-tabs" role="group" aria-label="搜索操作">
+      <button id="search-mode-song" class="active" type="button" onclick="runSongSearchFromInput()" aria-pressed="true">搜索</button>
+      <button id="search-import-playlist" type="button" onclick="runPlaylistImportFromSearch()" aria-pressed="false">导入歌单</button>
     </div>
     <div id="search-results"></div>
   </div>
@@ -15572,8 +15570,8 @@ async function loadConnectorPlaylistData(provider, id, opts) {
     return connectorRequest('qq.playlistTracks', { id: id.replace(/^qq:/, '') }, opts.timeoutMs || 16000);
   }
   if (provider === 'kugou') {
-    if (!connectorSupportsSharedPlaylistImport()) throw new Error('需要更新 Mineradio Connector 到 0.5.0 或更新版本');
-    return connectorRequest('kugou.sharedPlaylist', { text: id }, opts.timeoutMs || 18000);
+    if (!connectorSupportsKugouSharedPlaylist()) throw new Error('需要 Mineradio Connector 0.4.3 或更新版本读取酷狗分享歌单');
+    return connectorRequest('kugou.sharedPlaylist', { text: id, url: id }, opts.timeoutMs || 18000);
   }
   return connectorRequest('netease.playlistTracks', { id: id.replace(/^netease:/, '') }, opts.timeoutMs || 14000);
 }
@@ -15607,6 +15605,12 @@ function compactHomeCount(n) {
   if (n >= 100000000) return (n / 100000000).toFixed(1).replace(/\.0$/, '') + '亿';
   if (n >= 10000) return Math.round(n / 10000) + '万';
   return n ? String(n) : '';
+}
+function homePlaylistItems() {
+  return mergePlaylistRecords((importedSharedPlaylists || []).concat(homeDiscoverState.playlists || []));
+}
+function homePlaylistItem(index) {
+  return homePlaylistItems()[Math.max(0, Number(index) || 0)] || null;
 }
 function loadListenStatsState() {
   try {
@@ -15796,6 +15800,7 @@ function renderHomeTiles() {
   if (!row) return;
   if (LOCAL_FIRST_MODE) {
     var summaryLocal = homeListenSummary();
+    var localHomePlaylists = homePlaylistItems();
     var localTiles = [];
     if (summaryLocal.recent) {
       localTiles.push({ kind: 'recent', title: summaryLocal.recent.name || '继续听', sub: summaryLocal.recent.artist || summaryLocal.recent.source || '继续听', cover: summaryLocal.recent.cover, record: summaryLocal.recent });
@@ -15804,8 +15809,12 @@ function renderHomeTiles() {
       homeDiscoverState.songs.slice(0, Math.max(0, 3 - localTiles.length)).forEach(function(song, i){
         localTiles.push({ kind: 'song', index: i, song: song, title: song.name || '每日推荐', sub: song.artist || songSourceLabel(song), cover: song.cover });
       });
-      homeDiscoverState.playlists.slice(0, Math.max(0, 4 - localTiles.length)).forEach(function(pl, i){
-        localTiles.push({ kind: 'playlist', index: i, title: pl.name || '我的收藏', sub: (pl.trackCount ? pl.trackCount + ' 首' : '网页登录态') + (pl.playCount ? ' ? ' + compactHomeCount(pl.playCount) + ' 播放' : ''), cover: pl.cover });
+      localHomePlaylists.slice(0, Math.max(0, 4 - localTiles.length)).forEach(function(pl, i){
+        localTiles.push({ kind: 'playlist', index: i, playlist: pl, title: pl.name || '我的收藏', sub: (pl.trackCount ? pl.trackCount + ' 首' : '网页登录态') + (pl.playCount ? ' · ' + compactHomeCount(pl.playCount) + ' 播放' : ''), cover: pl.cover });
+      });
+    } else if (localHomePlaylists.length) {
+      localHomePlaylists.slice(0, Math.max(0, 4 - localTiles.length)).forEach(function(pl, i){
+        localTiles.push({ kind: 'playlist', index: i, playlist: pl, title: pl.name || '导入歌单', sub: (pl.trackCount ? pl.trackCount + ' 首' : '最近导入') + (pl.partial && pl.loadedCount ? ' · 已读取 ' + pl.loadedCount + ' 首' : ''), cover: pl.cover });
       });
     }
     homePreviewSongs.slice(0, Math.max(0, 2 - localTiles.length)).forEach(function(song, i){
@@ -15833,7 +15842,8 @@ function renderHomeTiles() {
     return;
   }
   var tiles = [];
-  var loggedOutHome = !homeDiscoverState.loggedIn && !hasAnyPlatformLogin();
+  var mixedHomePlaylists = homePlaylistItems();
+  var loggedOutHome = !homeDiscoverState.loggedIn && !hasAnyPlatformLogin() && !mixedHomePlaylists.length;
   var weatherSongs = homeWeatherRadioState.radio && homeWeatherRadioState.radio.songs || [];
   var summary = homeListenSummary();
   if (summary.recent && tiles.length < 5) {
@@ -15846,8 +15856,8 @@ function renderHomeTiles() {
     homeDiscoverState.songs.slice(0, Math.max(0, 4 - tiles.length)).forEach(function(song, i){
       tiles.push({ kind: 'song', index: i, song: song, title: song.name || '今日歌曲', sub: song.artist || songSourceLabel(song) });
     });
-    homeDiscoverState.playlists.slice(0, Math.max(0, 5 - tiles.length)).forEach(function(pl, i){
-      tiles.push({ kind: 'playlist', index: i, title: pl.name || '推荐歌单', sub: (pl.trackCount ? pl.trackCount + ' 首' : 'Playlist') + (pl.playCount ? ' · ' + compactHomeCount(pl.playCount) + ' 播放' : ''), cover: pl.cover });
+    mixedHomePlaylists.slice(0, Math.max(0, 5 - tiles.length)).forEach(function(pl, i){
+      tiles.push({ kind: 'playlist', index: i, playlist: pl, title: pl.name || '推荐歌单', sub: (pl.trackCount ? pl.trackCount + ' 首' : 'Playlist') + (pl.playCount ? ' · ' + compactHomeCount(pl.playCount) + ' 播放' : ''), cover: pl.cover });
     });
     if (tiles.length < 5) {
       homeDiscoverState.podcasts.slice(0, 5 - tiles.length).forEach(function(p, i){
@@ -15898,7 +15908,7 @@ function renderHomeDiscover() {
     var dailyLocal = homeDiscoverState.songs[0] || null;
     var cardSongBLocal = homeDiscoverState.songs[1] || null;
     var cardSongCLocal = homeDiscoverState.songs[2] || null;
-    var playlistLocal = homeDiscoverState.playlists[0] || null;
+    var playlistLocal = homePlaylistItem(0);
     if (homeDiscoverState.loggedIn) {
       if (weatherCardTitle) weatherCardTitle.textContent = '我的收藏';
       if (weatherCardSub) weatherCardSub.textContent = playlistLocal ? ((playlistLocal.trackCount || 0) + ' 首 · ' + (playlistLocal.creator || '网页登录态')) : '来自网易云网页登录态';
@@ -15909,8 +15919,8 @@ function renderHomeDiscover() {
       if (libTitle) libTitle.textContent = cardSongCLocal ? cardSongCLocal.name : '播放器控制台';
       if (libSub) libSub.textContent = cardSongCLocal ? (cardSongCLocal.artist || songSourceLabel(cardSongCLocal)) : '展开底部播放控制';
     } else {
-      if (weatherCardTitle) weatherCardTitle.textContent = '本地导入';
-      if (weatherCardSub) weatherCardSub.textContent = '选择电脑里的音乐文件';
+      if (weatherCardTitle) weatherCardTitle.textContent = playlistLocal ? playlistLocal.name : '本地导入';
+      if (weatherCardSub) weatherCardSub.textContent = playlistLocal ? (((playlistLocal.trackCount || playlistLocal.loadedCount || 0) ? (playlistLocal.trackCount || playlistLocal.loadedCount) + ' 首 · ' : '') + '最近导入歌单') : '选择电脑里的音乐文件';
       if (dailyTitle) dailyTitle.textContent = '歌曲试听推荐';
       if (dailySub) dailySub.textContent = '未登录默认试听渠道';
       if (privateTitle) privateTitle.textContent = '飞机场的10:30';
@@ -15963,7 +15973,7 @@ function renderHomeDiscover() {
   var daily = homeDiscoverState.songs[0] || null;
   var cardSongB = homeDiscoverState.songs[1] || null;
   var cardSongC = homeDiscoverState.songs[2] || null;
-  var playlistItem = homeDiscoverState.playlists[0] || null;
+  var playlistItem = homePlaylistItem(0);
   var podcastItem = homeDiscoverState.podcasts[0] || null;
   var summary = homeListenSummary();
   var weatherCardTitle = document.getElementById('home-weather-card-title');
@@ -16576,7 +16586,7 @@ async function playHomePrivateRadio() {
     return;
   }
   await waitForHomeDiscoverIdle();
-  if (!homeDiscoverState.loaded || ((!homeDiscoverState.playlists.length && !homeDiscoverState.songs.length) && !homeDiscoverState.loading)) {
+  if (!homeDiscoverState.loaded || (((!homePlaylistItems().length && !homeDiscoverState.songs.length) && !homeDiscoverState.loading))) {
     await loadHomeDiscover(true);
   }
   if (homeDiscoverState.songs.length) {
@@ -16588,7 +16598,7 @@ async function playHomePrivateRadio() {
     playQueueAt(0).catch(function(e){ console.warn('[HomePrivatePlay]', e); });
     return;
   }
-  var item = homeDiscoverState.playlists[0];
+  var item = homePlaylistItem(0);
   if (item && item.id) {
     await loadPlaylistIntoQueueById(item.id, true, item.name || '私人雷达');
     return;
@@ -16626,16 +16636,16 @@ function playHomeSong(index) {
   forcePlaybackControlsInteractive();
   playQueueAt(currentIdx).catch(function(e){ console.warn('[HomeSongPlay]', e); });
 }
-function openHomePlaylist(index) {
+function openHomePlaylist(index, playlistItem) {
   homeForcedOpen = false;
   homeSuppressed = false;
   setHomeControlsLocked(false);
-  if (!hasAnyPlatformLogin() && !homeDiscoverState.loggedIn) {
+  var item = playlistItem || homePlaylistItem(index);
+  if (!item && !hasAnyPlatformLogin() && !homeDiscoverState.loggedIn) {
     runHomeSearch('');
     return;
   }
   openPlaylistPanelTab('playlists', true);
-  var item = homeDiscoverState.playlists[index];
   if (!item || !item.id) {
     openHomeLibrary();
     return;
@@ -16855,7 +16865,7 @@ function handleHomeTileClick(index) {
   else if (item.kind === 'preview') playHomePreviewTrack(item.index);
   else if (item.kind === 'guide') openHomeProductGuide();
   else if (item.kind === 'search') runHomeSearch(item.query || '');
-  else if (item.kind === 'playlist') openHomePlaylist(item.index);
+  else if (item.kind === 'playlist') openHomePlaylist(item.index, item.playlist);
   else if (item.kind === 'podcast') openHomePodcast(item.index);
   else if (item.kind === 'podcastSearch') { setSearchMode('podcast'); loadPodcastHot(); }
   else if (item.kind === 'library') openHomeLibrary();
@@ -17904,6 +17914,20 @@ function connectorRequest(action, payload, timeoutMs) {
     }, '*');
   });
 }
+async function ensureConnectorAvailable(timeoutMs) {
+  if (connectorState.available) return true;
+  try {
+    var res = await connectorRequest('ping', {}, timeoutMs || 1800);
+    connectorState.available = true;
+    connectorState.version = res.version || connectorState.version || '';
+    connectorState.checkedAt = Date.now();
+    updateSearchModeTabs();
+    tryRefreshConnectorStatus();
+    return true;
+  } catch (err) {
+    return false;
+  }
+}
 function versionAtLeast(version, minimum) {
   var a = String(version || '').split('.').map(function(part){ return parseInt(part, 10) || 0; });
   var b = String(minimum || '').split('.').map(function(part){ return parseInt(part, 10) || 0; });
@@ -17983,14 +18007,20 @@ async function tryRefreshConnectorStatus() {
 }
 function updateSearchModeTabs() {
   var songBtn = document.getElementById('search-mode-song');
+  var importBtn = document.getElementById('search-import-playlist');
   var neteaseBtn = document.getElementById('search-mode-netease');
   var qqBtn = document.getElementById('search-mode-qq');
   var podcastBtn = document.getElementById('search-mode-podcast');
   if (LOCAL_FIRST_MODE) searchMode = 'song';
   if (songBtn) {
-    songBtn.textContent = LOCAL_FIRST_MODE ? '歌曲试听推荐' : 'All';
+    songBtn.textContent = '搜索';
     songBtn.classList.toggle('active', searchMode === 'song');
     songBtn.setAttribute('aria-selected', searchMode === 'song' ? 'true' : 'false');
+    songBtn.setAttribute('aria-pressed', searchMode === 'song' ? 'true' : 'false');
+  }
+  if (importBtn) {
+    importBtn.classList.remove('active');
+    importBtn.setAttribute('aria-pressed', 'false');
   }
   if (neteaseBtn) {
     neteaseBtn.classList.toggle('active', searchMode === 'netease');
@@ -18006,12 +18036,34 @@ function updateSearchModeTabs() {
   }
   if ($input) {
     $input.placeholder = LOCAL_FIRST_MODE
-      ? (connectorState.available ? '搜索歌曲、歌手，自动混合网易云 / QQ / 可播酷狗 / 试听推荐...' : '搜索歌曲试听推荐，或导入本地歌曲...')
+      ? '搜索歌曲 / 歌手，或粘贴歌单链接'
       : (searchMode === 'podcast'
       ? '搜索播客、电台...'
       : (searchMode === 'qq' ? '搜索 QQ 音乐...' : (searchMode === 'netease' ? '搜索网易云音乐...' : '搜索歌曲、歌手...')));
   }
   requestAnimationFrame(updateSearchPillGlassDisplacementMap);
+}
+function runSongSearchFromInput() {
+  setSearchMode('song');
+  clearTimeout(searchTimer);
+  var q = $input ? $input.value.trim() : '';
+  if (q) doSearch(q, { autoPlayFirst: false });
+  else renderSearchHistory();
+}
+function runPlaylistImportFromSearch() {
+  clearTimeout(searchTimer);
+  setSearchMode('song');
+  var q = $input ? $input.value.trim() : '';
+  if (!q) {
+    showSourceFallbackNotice('粘贴歌单链接', '支持网易云、QQ 音乐和酷狗分享歌单链接。');
+    if ($input) $input.focus();
+    return;
+  }
+  if (!detectPlaylistShareInput(q)) {
+    showSourceFallbackNotice('未识别歌单链接', '请粘贴网易云、QQ 音乐或酷狗的歌单分享链接。');
+    return;
+  }
+  importSharedPlaylist(q, { autoPlayFirst: false });
 }
 function setSearchMode(mode) {
   if (LOCAL_FIRST_MODE) mode = 'song';
@@ -18756,6 +18808,7 @@ async function importSharedPlaylist(q, opts) {
   opts = opts || {};
   var share = detectPlaylistShareInput(q);
   if (!share) return false;
+  await ensureConnectorAvailable(1800);
   if (share.provider !== 'kugou' && !connectorSupportsSharedPlaylistImport()) {
     showSourceFallbackNotice('需要更新 Mineradio Connector', '网易云 / QQ 外链歌单导入需要 0.5.0 或更新版本的浏览器扩展。');
     return true;
@@ -18792,6 +18845,8 @@ async function importSharedPlaylist(q, opts) {
     playlist = tracks;
     renderSongSearchResults(tracks);
     renderUserPlaylistsList({ animate: isPlaylistPanelVisibleForRender(), reset: true });
+    homeDiscoverState.playlists = mergePlaylistRecords(importedSharedPlaylists.concat(homeDiscoverState.playlists || []));
+    if (emptyHomeActive) renderHomeDiscover();
     safeShelfRebuild('shared-playlist-import', true);
     showSourceFallbackNotice(title + '已导入', sharedPlaylistImportMessage(pl, tracks, res));
     if (opts.autoPlayFirst) playSearchResult(0);
@@ -18807,6 +18862,7 @@ async function importSharedPlaylist(q, opts) {
 async function importKugouSharedPlaylist(q, opts) {
   opts = opts || {};
   if (detectPlaylistShareInput(q)) return importSharedPlaylist(q, opts);
+  await ensureConnectorAvailable(1800);
   if (!connectorSupportsKugouSharedPlaylist()) {
     showSourceFallbackNotice('需要更新 Mineradio Connector', '酷狗分享歌单导入需要 0.4.3 或更新版本的浏览器扩展。');
     return false;
