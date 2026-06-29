@@ -24,6 +24,7 @@ function oldExtensionMessage(message) {
 
 function vipText(status) {
   status = status || {};
+  if (status.vipUnknown || status.vipLabel === 'VIP_UNKNOWN') return ' 路 VIP 未确认';
   if (status.vipLabel && status.vipLabel !== '无VIP') return ' · ' + status.vipLabel;
   if (status.isSvip) return ' · SVIP';
   if (status.isVip || Number(status.vipType || 0) > 0) return ' · VIP';
