@@ -22,6 +22,7 @@ const NETEASE_HOME_PLAYLIST_RENDER_LIMIT = 48;
 const NETEASE_PLAYLIST_TRACK_LIMIT = 240;
 const QQ_PLAYLIST_TRACK_LIMIT = 240;
 const KUGOU_SHARED_PLAYLIST_TRACK_LIMIT = 500;
+const KUGOU_PROBE_QUERIES = ['\u5468\u6770\u4f26 \u6674\u5929', '\u9648\u5955\u8fc5 \u5341\u5e74', 'Taylor Swift Love Story'];
 const NETEASE_AUTH_STORE_KEY = 'mineradio.neteaseAuth.v1';
 const QQ_AUTH_STORE_KEY = 'mineradio.qqAuth.v1';
 const KUGOU_AUTH_STORE_KEY = 'mineradio.kugouAuth.v1';
@@ -2624,33 +2625,110 @@ async function kugouStatus() {
     cacheAgeMs: Number(ctx.cacheAgeMs || 0) || 0,
     vipLabel: vip.vipLabel,
     playbackReady: !!(probe && probe.playbackReady),
+    webPlaybackObserved: !!(probe && probe.webPlaybackObserved),
     playbackProbeFailed: !!(probe && probe.playbackProbeFailed),
     playbackProbeMessage: probe && probe.playbackProbeMessage || '',
-    capabilityLabel: probe && probe.playbackReady ? 'playback' : (ctx.loggedIn ? 'login_only' : 'shared_playlist_only')
+    capabilityLabel: probe && probe.playbackReady
+      ? 'playback'
+      : ((probe && probe.webPlaybackObserved) ? 'site_playback_only' : (ctx.loggedIn ? 'login_only' : 'shared_playlist_only'))
   };
+}
+
+async function kugouObservePlaybackFromTab() {
+  try {
+    const tabs = await promiseWithTimeout(kugouTabs(), 1800, []);
+    const tab = (tabs || []).find(item => item && item.id && !item.discarded) || (tabs || []).find(item => item && item.id);
+    if (!tab || !tab.id) return { observed: false };
+    const results = await promiseWithTimeout(chromeExecuteScript({
+      target: { tabId: tab.id },
+      func: function () {
+        function readText(selector) {
+          var el = document.querySelector(selector);
+          return el && el.textContent ? String(el.textContent).trim() : '';
+        }
+        var audio = Array.from(document.querySelectorAll('audio')).find(function (node) {
+          return node && !node.paused && !node.ended && node.currentTime > 0;
+        });
+        return {
+          observed: !!audio,
+          currentSrc: audio && audio.currentSrc ? String(audio.currentSrc) : '',
+          title: readText('.play-songname') || readText('[data-testid="song-name"]') || document.title || '',
+          artist: readText('.play-author') || readText('.song-author') || ''
+        };
+      }
+    }), 2200, []);
+    return results && results[0] && results[0].result || { observed: false };
+  } catch (err) {
+    return { observed: false };
+  }
+}
+
+function kugouProbeMessageFromSong(song) {
+  if (!song) return 'kugou_probe_no_song';
+  if (song.playbackMessage) return String(song.playbackMessage);
+  if (song.playbackCode) return 'kugou_playback_code_' + String(song.playbackCode);
+  return 'url_unavailable';
 }
 
 async function kugouPlaybackCapabilityProbe(ctx) {
   ctx = ctx || await kugouContext();
-  const cacheKey = [ctx.userid || '0', ctx.token ? 'token' : 'anon', ctx.vipType || 0].join('|');
+  const playbackFromTab = await kugouObservePlaybackFromTab();
+  const cacheKey = [
+    ctx.userid || '0',
+    ctx.token ? 'token' : 'anon',
+    ctx.vipType || 0,
+    playbackFromTab && playbackFromTab.observed ? 'tab' : 'notab'
+  ].join('|');
   if (kugouCapabilityCache.key === cacheKey && kugouCapabilityCache.result && Date.now() - kugouCapabilityCache.checkedAt < 5 * 60 * 1000) {
     return kugouCapabilityCache.result;
   }
   if (!ctx.loggedIn || !ctx.token) {
-    const result = { playbackReady: false, playbackProbeFailed: true, playbackProbeMessage: 'login_or_token_missing' };
+    const result = {
+      playbackReady: false,
+      webPlaybackObserved: !!(playbackFromTab && playbackFromTab.observed),
+      playbackProbeFailed: true,
+      playbackProbeMessage: 'login_or_token_missing'
+    };
     kugouCapabilityCache = { key: cacheKey, checkedAt: Date.now(), result };
     return result;
   }
   try {
-    const search = await kugouSearch({ q: '鍛ㄦ澃浼?鏅村ぉ', limit: 3 });
-    const playable = (search.songs || []).find(song => song && song.probedAudioUrl && song.playable !== false);
+    let playable = null;
+    let probeMessage = '';
+    let checkedSongs = 0;
+    for (const query of KUGOU_PROBE_QUERIES) {
+      const search = await kugouSearch({ q: query, limit: 5, probe: true });
+      const songs = Array.isArray(search && search.songs) ? search.songs : [];
+      checkedSongs += songs.length;
+      playable = songs.find(song => song && song.probedAudioUrl && song.playable !== false);
+      if (playable) break;
+      const firstChecked = songs.find(song => song && song.playbackChecked);
+      if (!probeMessage && firstChecked) probeMessage = kugouProbeMessageFromSong(firstChecked);
+    }
     const result = playable
-      ? { playbackReady: true, playbackProbeFailed: false, playbackProbeMessage: '', probeSong: playable.name || '' }
-      : { playbackReady: false, playbackProbeFailed: true, playbackProbeMessage: 'url_unavailable' };
+      ? {
+          playbackReady: true,
+          webPlaybackObserved: !!(playbackFromTab && playbackFromTab.observed),
+          playbackProbeFailed: false,
+          playbackProbeMessage: '',
+          probeSong: playable.name || '',
+          probeArtist: playable.artist || ''
+        }
+      : {
+          playbackReady: false,
+          webPlaybackObserved: !!(playbackFromTab && playbackFromTab.observed),
+          playbackProbeFailed: true,
+          playbackProbeMessage: probeMessage || (checkedSongs ? 'url_unavailable' : 'kugou_search_empty')
+        };
     kugouCapabilityCache = { key: cacheKey, checkedAt: Date.now(), result };
     return result;
   } catch (err) {
-    const result = { playbackReady: false, playbackProbeFailed: true, playbackProbeMessage: err && err.message || String(err) };
+    const result = {
+      playbackReady: false,
+      webPlaybackObserved: !!(playbackFromTab && playbackFromTab.observed),
+      playbackProbeFailed: true,
+      playbackProbeMessage: err && err.message || String(err)
+    };
     kugouCapabilityCache = { key: cacheKey, checkedAt: Date.now(), result };
     return result;
   }
@@ -2659,6 +2737,7 @@ async function kugouPlaybackCapabilityProbe(ctx) {
 async function kugouSearch(payload) {
   const q = String(payload && payload.q || '').trim();
   const limit = Math.max(1, Math.min(20, Number(payload && payload.limit) || 8));
+  const probe = !!(payload && payload.probe);
   if (!q) return { songs: [] };
   const ctx = await kugouContext();
   const now = Date.now();
@@ -2687,13 +2766,15 @@ async function kugouSearch(payload) {
   const url = 'https://complexsearch.kugou.com/v2/search/song?' + new URLSearchParams(params).toString();
   const data = await kugouFetchJson(url);
   let songs = (((data || {}).data || {}).lists || []).map(normalizeKugouSong).filter(song => song.id && song.name);
-  songs = await enrichKugouSongs(songs);
+  songs = await enrichKugouSongs(songs, { probe });
   return { songs };
 }
 
-async function enrichKugouSongs(songs) {
+async function enrichKugouSongs(songs, options) {
+  options = options || {};
+  const probeLimit = options.probe ? 5 : 12;
   const checked = [];
-  for (const song of songs.slice(0, 12)) {
+  for (const song of songs.slice(0, probeLimit)) {
     try {
       const playback = await kugouSongUrl(song);
       song.playbackChecked = true;
@@ -2701,6 +2782,7 @@ async function enrichKugouSongs(songs) {
       song.playbackCode = playback.code || 0;
       if (playback.url) song.probedAudioUrl = playback.url;
       else song.playbackProbeFailed = true;
+      if (playback.message) song.playbackMessage = playback.message;
       if (playback.cover) song.cover = song.cover || playback.cover;
       if (playback.lyric) song.lyric = playback.lyric;
       checked.push(song);
@@ -2709,18 +2791,46 @@ async function enrichKugouSongs(songs) {
       song.playable = false;
       song.playbackCode = 0;
       song.playbackProbeFailed = true;
-      song.playbackMessage = err && err.message || '閰风嫍鏈繑鍥炲彲鎾斁鍦板潃';
+      song.playbackMessage = err && err.message || 'kugou_audio_url_unavailable';
       checked.push(song);
     }
   }
   return checked;
 }
 
+async function kugouSongUrlLegacy(song, ctx) {
+  const hash = String(song && (song.hash || song.FileHash || song.raw && song.raw.fileHash) || '').trim();
+  const albumId = String(song && (song.albumId || song.AlbumID || song.raw && song.raw.albumId) || '').trim();
+  if (!hash) return null;
+  const params = new URLSearchParams({
+    r: 'play/getdata',
+    hash: hash,
+    album_id: albumId || '0',
+    dfid: String(ctx && ctx.dfid || ''),
+    mid: String(ctx && ctx.mid || ''),
+    platid: '4',
+    _: String(Date.now())
+  });
+  const url = KUGOU_ORIGIN + '/yy/index.php?' + params.toString();
+  const data = await kugouFetchJson(url, {
+    referrer: KUGOU_ORIGIN + '/',
+    headers: kugouHeaders({ Referer: KUGOU_ORIGIN + '/' })
+  });
+  const body = data && (data.data || data) || {};
+  const audioUrl = ensureHttpsAudioUrl(body.play_url || body.play_backup_url || body.src || '');
+  return {
+    url: audioUrl,
+    cover: kugouCoverUrl(body.img || body.album_img || ''),
+    lyric: body.lyrics || body.lyric || '',
+    message: audioUrl ? '' : ((data && (data.error_msg || data.msg)) || 'audio_url_unavailable')
+  };
+}
+
 async function kugouSongUrl(payload) {
   const song = payload || {};
   const encodeAlbumAudioId = String(song.mid || song.id || song.encode_album_audio_id || song.EMixSongID || '').trim();
-  if (!encodeAlbumAudioId) throw new Error('Missing Kugou song id');
   const ctx = await kugouContext();
+  if (!encodeAlbumAudioId && !(song.hash || song.FileHash || song.raw && song.raw.fileHash)) throw new Error('Missing Kugou song id');
   const params = kugouSignedParams({
     srcappid: '2919',
     clientver: '20000',
@@ -2734,22 +2844,46 @@ async function kugouSongUrl(payload) {
     token: ctx.token,
     userid: ctx.userid
   });
-  const url = 'https://wwwapi.kugou.com/play/songinfo?' + new URLSearchParams(params).toString();
-  const data = await kugouFetchJson(url);
-  const body = data && (data.data || data) || {};
-  const audioUrl = ensureHttpsAudioUrl(body.play_url || body.backup_url && body.backup_url[0] || body.play_backup_url && body.play_backup_url[0] || '');
+  let data = null;
+  let body = {};
+  let audioUrl = '';
+  let message = '';
+  if (encodeAlbumAudioId) {
+    const url = 'https://wwwapi.kugou.com/play/songinfo?' + new URLSearchParams(params).toString();
+    data = await kugouFetchJson(url);
+    body = data && (data.data || data) || {};
+    audioUrl = ensureHttpsAudioUrl(body.play_url || body.backup_url && body.backup_url[0] || body.play_backup_url && body.play_backup_url[0] || '');
+    message = audioUrl ? '' : ((data && (data.error_msg || data.msg)) || 'audio_url_unavailable');
+  }
+  if (!audioUrl) {
+    try {
+      const legacy = await kugouSongUrlLegacy(song, ctx);
+      if (legacy && legacy.url) {
+        audioUrl = legacy.url;
+        body = Object.assign({}, body, {
+          img: legacy.cover || body.img,
+          lyrics: legacy.lyric || body.lyrics
+        });
+        message = '';
+      } else if (!message && legacy && legacy.message) {
+        message = legacy.message;
+      }
+    } catch (legacyErr) {
+      if (!message) message = legacyErr && legacyErr.message || 'audio_url_unavailable';
+    }
+  }
   return {
     provider: 'kugou-extension',
     url: audioUrl,
     level: body.bit_rate ? String(body.bit_rate) : 'standard',
-    quality: '閰风嫍鎵╁睍',
+    quality: 'kugou-extension',
     code: data && (data.status || data.error_code || data.err_code) || 0,
     trial: false,
     playable: !!audioUrl,
     cover: kugouCoverUrl(body.img || body.album_img || ''),
     lyric: body.lyrics || body.lyric || '',
     reason: audioUrl ? '' : 'url_unavailable',
-    message: audioUrl ? '' : ((data && (data.error_msg || data.msg)) || 'audio_url_unavailable')
+    message: audioUrl ? '' : (message || 'audio_url_unavailable')
   };
 }
 

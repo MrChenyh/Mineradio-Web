@@ -153,6 +153,20 @@ function compactBadgeText(value) {
   return '';
 }
 
+function playbackProbeText(value) {
+  var text = safeTrim(value);
+  if (!text) return '';
+  if (text === 'url_unavailable' || text === 'audio_url_unavailable' || text === 'kugou_audio_url_unavailable') return '\u672a\u62ff\u5230 Web \u53ef\u76f4\u63a5\u64ad\u653e\u7684\u97f3\u9891\u5730\u5740';
+  if (text === 'login_or_token_missing') return '\u767b\u5f55\u51ed\u636e\u8fd8\u4e0d\u5b8c\u6574';
+  if (text === 'kugou_probe_timeout') return '\u9177\u72d7\u64ad\u653e\u68c0\u67e5\u8d85\u65f6';
+  if (text === 'kugou_search_empty') return '\u6d4b\u8bd5\u641c\u7d22\u6ca1\u6709\u8fd4\u56de\u53ef\u68c0\u67e5\u6b4c\u66f2';
+  if (text === 'kugou_probe_no_song') return '\u6ca1\u6709\u53ef\u68c0\u67e5\u6b4c\u66f2';
+  var code = text.match(/^kugou_playback_code_(.+)$/);
+  if (code) return '\u9177\u72d7\u64ad\u653e\u63a5\u53e3\u8fd4\u56de\u4ee3\u7801 ' + code[1];
+  if (/Invalid JSON from kugou\.com/i.test(text)) return '\u9177\u72d7\u63a5\u53e3\u8fd4\u56de\u5f02\u5e38';
+  return text;
+}
+
 function cacheLine(status) {
   status = status || {};
   if (!status.authCached) return '';
@@ -254,25 +268,27 @@ function summarizeStatus(provider, status) {
       details: lineJoin([
         cacheLine(status),
         vipLabel(status) ? '\u8d26\u53f7\u7c7b\u578b\uff1a' + vipLabel(status) : '',
-        status.playbackProbeMessage ? '\u64ad\u653e\u68c0\u67e5\uff1a' + status.playbackProbeMessage : '\u64ad\u653e\u68c0\u67e5\u5df2\u901a\u8fc7'
+        status.playbackProbeMessage ? '\u64ad\u653e\u68c0\u67e5\uff1a' + playbackProbeText(status.playbackProbeMessage) : '\u64ad\u653e\u68c0\u67e5\u5df2\u901a\u8fc7'
       ]),
       tip: ''
     };
   }
   if (status.loggedIn) {
+    var kugouObserved = !!status.webPlaybackObserved;
     return {
       tone: 'warning',
       stateText: TEXT.states.limited,
       badge: vipLabel(status),
-      title: '\u767b\u5f55\u72b6\u6001\u5df2\u8bfb\u5230',
-      description: '\u76ee\u524d\u8fd8\u4e0d\u5efa\u8bae\u4f5c\u4e3a\u9996\u9009\u53ef\u64ad\u6e90',
+      title: kugouObserved ? '\u9177\u72d7\u7f51\u9875\u64ad\u653e\u5df2\u68c0\u6d4b\u5230' : '\u767b\u5f55\u72b6\u6001\u5df2\u8bfb\u5230',
+      description: kugouObserved ? 'Mineradio \u8fd8\u6ca1\u62ff\u5230\u53ef\u76f4\u64ad\u7684\u97f3\u9891\u5730\u5740' : '\u76ee\u524d\u8fd8\u4e0d\u5efa\u8bae\u4f5c\u4e3a\u9996\u9009\u53ef\u64ad\u6e90',
       account: sanitizeAccountName(status.nickname || status.userId),
       details: lineJoin([
         cacheLine(status),
         vipLabel(status) ? '\u8d26\u53f7\u7c7b\u578b\uff1a' + vipLabel(status) : '',
-        status.playbackProbeMessage ? '\u64ad\u653e\u68c0\u67e5\uff1a' + status.playbackProbeMessage : '\u64ad\u653e\u68c0\u67e5\u672a\u901a\u8fc7'
+        kugouObserved ? '\u5b98\u7f51\u64ad\u653e\uff1a\u5df2\u68c0\u6d4b\u5230' : '',
+        status.playbackProbeMessage ? '\u64ad\u653e\u68c0\u67e5\uff1a' + playbackProbeText(status.playbackProbeMessage) : '\u64ad\u653e\u68c0\u67e5\u672a\u901a\u8fc7'
       ]),
-      tip: '\u5982\u679c\u521a\u767b\u5f55\u8fc7\uff0c\u5148\u5728\u9177\u72d7\u7f51\u9875\u64ad\u4e00\u9996\u6b4c\u518d\u8bd5'
+      tip: kugouObserved ? '\u5df2\u8bc1\u660e\u5b98\u7f51\u4f1a\u8bdd\u53ef\u7528\uff0c\u4f46\u9177\u72d7\u63a5\u53e3\u6682\u672a\u8fd4\u56de Web \u76f4\u64ad\u94fe\u63a5' : '\u5982\u679c\u521a\u767b\u5f55\u8fc7\uff0c\u5148\u5728\u9177\u72d7\u7f51\u9875\u64ad\u4e00\u9996\u6b4c\u518d\u8bd5'
     };
   }
   return {
@@ -284,7 +300,7 @@ function summarizeStatus(provider, status) {
     account: '',
     details: lineJoin([
       cacheLine(status),
-      status.playbackProbeMessage ? '\u64ad\u653e\u68c0\u67e5\uff1a' + status.playbackProbeMessage : '\u76ee\u524d\u53ea\u4fdd\u5b58\u5916\u94fe\u5bfc\u5165\u80fd\u529b'
+      status.playbackProbeMessage ? '\u64ad\u653e\u68c0\u67e5\uff1a' + playbackProbeText(status.playbackProbeMessage) : '\u76ee\u524d\u53ea\u4fdd\u5b58\u5916\u94fe\u5bfc\u5165\u80fd\u529b'
     ]),
     tip: '\u767b\u5f55\u540e\u64ad\u4e00\u9996\u6b4c\uff0c\u80fd\u66f4\u5feb\u8865\u9f50\u64ad\u653e\u6388\u6743'
   };
