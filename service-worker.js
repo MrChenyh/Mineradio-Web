@@ -685,7 +685,17 @@ function decodeKugouCookieValue(value) {
 }
 
 function kugouAuthFieldPattern() {
-  return /^(kg_mid|mid|kg_dfid|dfid|KuGoo|KugooID|UserName|NickName|Pic|token|KuGooToken|t|a_id|ct|vip_type|viptype|is_vip|isVIP|svip|userid|userId|uid)$/i;
+  return /^(kg_mid|mid|kg_dfid|dfid|KuGoo|KugooID|UserName|NickName|Pic|token|KuGooToken|t|a_id|ct|userid|userId|uid|vip|vip_.*|vip[A-Z].*|svip|svip_.*|svip[A-Z].*|is_vip|isVIP|isvip|member|member_.*|member[A-Z].*|is_member|isMember|green_vip|greenVip|luxury_vip|luxuryVip|music_vip|musicVip|m_type|mType|pay_type|payType|roam_type|roamType)$/i;
+}
+
+function kugouKeyLooksVip(key) {
+  return /vip|svip|member|green|luxury|music[_-]?pack|pay|roam|m_type|mtype|expire|endtime|end_time/i.test(String(key || ''));
+}
+
+function kugouVipContextField(key) {
+  const safe = String(key || '').replace(/[^a-z0-9_]/ig, '_');
+  if (!safe) return '';
+  return 'vip_' + safe;
 }
 
 function parseKugouCompoundCookie(raw) {
@@ -713,32 +723,34 @@ function mergeKugouAuthFields(target, source) {
   return target;
 }
 
-function extractKugouAuthFromObject(value, out, depth) {
+function extractKugouAuthFromObject(value, out, depth, vipContext) {
   out = out || {};
   if (!value || depth > 4) return out;
   if (typeof value === 'string') {
     const text = value.trim();
     if (!text) return out;
-    if (text.indexOf('=') > 0 && /KugooID|UserName|token|KuGooToken|vip/i.test(text)) {
+    if (text.indexOf('=') > 0 && /KugooID|UserName|token|KuGooToken|vip|svip|member|green|luxury|m_type/i.test(text)) {
       mergeKugouAuthFields(out, parseCookieString(text.replace(/&/g, ';')));
       mergeKugouAuthFields(out, parseKugouCompoundCookie(text));
     }
     if ((text[0] === '{' && text[text.length - 1] === '}') || (text[0] === '[' && text[text.length - 1] === ']')) {
-      try { extractKugouAuthFromObject(JSON.parse(text), out, depth + 1); } catch (err) {}
+      try { extractKugouAuthFromObject(JSON.parse(text), out, depth + 1, vipContext || kugouKeyLooksVip(text)); } catch (err) {}
     }
     return out;
   }
   if (Array.isArray(value)) {
-    value.forEach(item => extractKugouAuthFromObject(item, out, depth + 1));
+    value.forEach(item => extractKugouAuthFromObject(item, out, depth + 1, vipContext));
     return out;
   }
   if (typeof value === 'object') {
     const direct = {};
     Object.keys(value).forEach(key => {
       const next = value[key];
+      const nextVipContext = !!vipContext || kugouKeyLooksVip(key);
       if (kugouAuthFieldPattern().test(key)) direct[key] = next;
-      if (/vip|svip|user|uid|token|kugou|kg_|dfid|mid/i.test(key)) extractKugouAuthFromObject(next, out, depth + 1);
-      else if (depth < 2 && (typeof next === 'object' || Array.isArray(next))) extractKugouAuthFromObject(next, out, depth + 1);
+      else if (vipContext && /^(type|level|status|state|flag|value|isopen|is_open|expire|expiretime|endtime|end_time|label|name)$/i.test(key)) direct[kugouVipContextField(key)] = next;
+      if (nextVipContext || /user|uid|token|kugou|kg_|dfid|mid/i.test(key)) extractKugouAuthFromObject(next, out, depth + 1, nextVipContext);
+      else if (depth < 2 && (typeof next === 'object' || Array.isArray(next))) extractKugouAuthFromObject(next, out, depth + 1, vipContext);
     });
     mergeKugouAuthFields(out, direct);
   }
@@ -771,10 +783,10 @@ async function kugouAuthObjectFromTab() {
       target: { tabId: tab.id },
       func: function () {
         var out = {};
-        var fieldPattern = /^(kg_mid|mid|kg_dfid|dfid|KuGoo|KugooID|UserName|NickName|Pic|token|KuGooToken|t|a_id|ct|vip_type|viptype|is_vip|isVIP|svip|userid|userId|uid)$/i;
+        var fieldPattern = /^(kg_mid|mid|kg_dfid|dfid|KuGoo|KugooID|UserName|NickName|Pic|token|KuGooToken|t|a_id|ct|userid|userId|uid|vip|vip_.*|vip[A-Z].*|svip|svip_.*|svip[A-Z].*|is_vip|isVIP|isvip|member|member_.*|member[A-Z].*|is_member|isMember|green_vip|greenVip|luxury_vip|luxuryVip|music_vip|musicVip|m_type|mType|pay_type|payType|roam_type|roamType)$/i;
         function put(name, value) {
           if (!name || value == null || String(value) === '') return;
-          if (fieldPattern.test(name) || /kugou|kg_|dfid|token|vip|user|uid/i.test(name + ' ' + value)) out[name] = String(value);
+          if (fieldPattern.test(name) || /kugou|kg_|dfid|token|vip|svip|member|green|luxury|pay|roam|m_type|user|uid/i.test(name + ' ' + value)) out[name] = String(value);
         }
         String(document.cookie || '').split(';').forEach(function (part) {
           var index = part.indexOf('=');
@@ -847,13 +859,44 @@ async function kugouClearAuth() {
 
 function normalizeKugouVip(ctx) {
   const vip = normalizeVipSignals(ctx || {}, 'VIP');
-  const explicitVip = Number(ctx.vipType || ctx.vip_type || ctx.viptype || 0) || 0;
-  if (explicitVip > 0 && !vip.isVip) {
-    vip.vipType = explicitVip;
-    vip.vipLevel = 'vip';
+  const sources = [ctx || {}, ctx && ctx.rawAuth || {}];
+  const explicitVip = firstPositiveNumberFrom(sources, [
+    'vipType', 'vip_type', 'viptype', 'vipLevel', 'vip_level', 'viplevel',
+    'm_type', 'mType', 'memberType', 'member_type', 'memberLevel', 'member_level',
+    'musicVipType', 'music_vip_type', 'musicVipLevel', 'music_vip_level',
+    'greenVip', 'green_vip', 'greenVipLevel', 'green_vip_level',
+    'luxuryVip', 'luxury_vip', 'luxuryVipLevel', 'luxury_vip_level',
+    'vip_type', 'vip_level', 'vip_typeid', 'vip_levelid',
+    'vip_type_', 'vip_level_', 'vip_type_id', 'vip_level_id'
+  ]);
+  const truthyFlags = sources.some(obj => obj && Object.keys(obj).some(key => {
+    if (!kugouKeyLooksVip(key) && !/is_vip|isvip|is_member|ismember/i.test(key)) return false;
+    const value = obj[key];
+    const text = String(value == null ? '' : value).trim().toLowerCase();
+    return value === true || Number(value) > 0 || /^(true|yes|open|opened|vip|svip|member)$/.test(text);
+  }));
+  const now = Date.now();
+  const hasFutureExpire = sources.some(obj => obj && Object.keys(obj).some(key => {
+    if (!/expire|endtime|end_time|expiretime/i.test(key)) return false;
+    const raw = Number(obj[key] || 0) || 0;
+    if (!raw) return false;
+    const ms = raw > 100000000000 ? raw : raw * 1000;
+    return ms > now;
+  }));
+  const text = collectVipStringValues(sources, [], 0).join(' ').toLowerCase();
+  const svipText = /svip|super\s*vip|luxury|black\s*vip|\u8c6a\u534e|\u9ed1\u94bb/.test(text);
+  const isSvip = !!vip.isSvip || svipText || explicitVip >= 10;
+  const isVip = isSvip || !!vip.isVip || explicitVip > 0 || truthyFlags || hasFutureExpire;
+  if (isVip) {
+    vip.vipType = Math.max(Number(vip.vipType || 0) || 0, explicitVip || 1);
+    vip.vipLevel = isSvip ? 'svip' : 'vip';
     vip.isVip = true;
+    vip.isSvip = isSvip;
     vip.vipUnknown = false;
-    vip.vipLabel = 'VIP';
+    vip.vipLabel = isSvip ? 'SVIP' : 'VIP';
+  } else if (vip.vipUnknown || sources.some(obj => obj && Object.keys(obj).some(kugouKeyLooksVip))) {
+    vip.vipUnknown = true;
+    vip.vipLabel = 'VIP_UNKNOWN';
   }
   return vip;
 }
