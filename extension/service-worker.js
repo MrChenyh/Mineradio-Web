@@ -981,11 +981,49 @@ function qqTabProbeLooksLoggedIn(probe) {
     (Array.isArray(probe.storageKeys) && probe.storageKeys.length));
 }
 
+function qqTabInfoLooksLoggedIn(tab) {
+  if (!tab) return false;
+  const title = String(tab.title || '');
+  const url = String(tab.url || '');
+  return /我的音乐|我喜欢|个人主页|profile|like\/song|profile\/create|profile\/buy|profile\/focus/i.test(title + ' ' + url);
+}
+
+async function qqVisibleTabSession() {
+  try {
+    const tabs = await chromeTabsQuery({ url: [QQ_ORIGIN + '/*'] });
+    const usableTabs = (tabs || []).filter(item => item && item.id && !item.discarded);
+    const tab = usableTabs.find(qqTabInfoLooksLoggedIn) || (tabs || []).find(qqTabInfoLooksLoggedIn) || usableTabs[0] || (tabs || [])[0] || null;
+    return {
+      ready: !!(usableTabs.length || (tabs || []).length),
+      loggedIn: qqTabInfoLooksLoggedIn(tab),
+      title: tab && tab.title || '',
+      url: tab && tab.url || ''
+    };
+  } catch (err) {
+    return { ready: false, loggedIn: false, error: err && err.message || String(err) };
+  }
+}
+
 function mergeQQTabProbeStatus(profile, probe) {
   profile = profile || {};
   const tabLoggedIn = qqTabProbeLooksLoggedIn(probe);
   profile.tabLoggedIn = tabLoggedIn;
   if (tabLoggedIn && !profile.loggedIn) {
+    profile.loggedIn = true;
+    profile.partialLogin = true;
+    profile.stale = true;
+    profile.nickname = profile.nickname || 'QQ Music';
+  }
+  return profile;
+}
+
+function mergeQQVisibleTabStatus(profile, tabSession) {
+  profile = profile || {};
+  tabSession = tabSession || {};
+  profile.musicTabReady = !!tabSession.ready;
+  profile.visibleTabLoggedIn = !!tabSession.loggedIn;
+  profile.visibleTabTitle = tabSession.title || '';
+  if (tabSession.loggedIn && !profile.loggedIn) {
     profile.loggedIn = true;
     profile.partialLogin = true;
     profile.stale = true;
@@ -1215,12 +1253,14 @@ function normalizeQQProfile(body, cookieObj) {
 
 async function qqStatus() {
   const cookieObj = await qqCookieObjectFromBrowser();
-  const tabReady = await qqMusicTabReady();
+  const tabSession = await qqVisibleTabSession();
+  const tabReady = tabSession.ready || await qqMusicTabReady();
   const tabProbe = await qqTabLoginProbe();
-  const fallback = mergeQQTabProbeStatus(normalizeQQProfile(null, cookieObj), tabProbe);
+  const fallback = mergeQQVisibleTabStatus(mergeQQTabProbeStatus(normalizeQQProfile(null, cookieObj), tabProbe), tabSession);
   fallback.musicTabReady = tabReady;
   fallback.cookieCount = Object.keys(cookieObj || {}).length;
   fallback.tabProbe = tabProbe;
+  fallback.tabSession = tabSession;
   if (!fallback.loggedIn) return fallback;
   try {
     const body = await qqGetJSON('https://c.y.qq.com/rsc/fcgi-bin/fcg_get_profile_homepage.fcg', {
@@ -1237,10 +1277,11 @@ async function qqStatus() {
       platform: 'yqq.json',
       needNewCode: '0'
     }, { cookieObj });
-    return Object.assign(mergeQQTabProbeStatus(normalizeQQProfile(body, cookieObj), tabProbe), {
+    return Object.assign(mergeQQVisibleTabStatus(mergeQQTabProbeStatus(normalizeQQProfile(body, cookieObj), tabProbe), tabSession), {
       musicTabReady: tabReady,
       cookieCount: fallback.cookieCount,
-      tabProbe
+      tabProbe,
+      tabSession
     });
   } catch (err) {
     return Object.assign({}, fallback, { profileUnavailable: true });
