@@ -2,6 +2,7 @@
 
 const NETEASE_ORIGIN = 'https://music.163.com';
 const KUGOU_ORIGIN = 'https://www.kugou.com';
+const KUGOU_VIP_ORIGIN = 'https://vip.kugou.com';
 const KUGOU_MOBILE_ORIGIN = 'https://m.kugou.com';
 const KUGOU_MOBILE_ALT_ORIGIN = 'https://m3ws.kugou.com';
 const QQ_ORIGIN = 'https://y.qq.com';
@@ -652,6 +653,7 @@ function kugouCookieUrl() {
 function kugouCookieUrls() {
   return [
     KUGOU_ORIGIN + '/',
+    KUGOU_VIP_ORIGIN + '/',
     KUGOU_MOBILE_ORIGIN + '/',
     KUGOU_MOBILE_ALT_ORIGIN + '/',
     'https://wwwapi.kugou.com/',
@@ -685,7 +687,7 @@ function decodeKugouCookieValue(value) {
 }
 
 function kugouAuthFieldPattern() {
-  return /^(kg_mid|mid|kg_dfid|dfid|KuGoo|KugooID|UserName|NickName|Pic|token|KuGooToken|t|a_id|ct|userid|userId|uid|vip|vip_.*|vip[A-Z].*|svip|svip_.*|svip[A-Z].*|is_vip|isVIP|isvip|member|member_.*|member[A-Z].*|is_member|isMember|green_vip|greenVip|luxury_vip|luxuryVip|music_vip|musicVip|m_type|mType|pay_type|payType|roam_type|roamType)$/i;
+  return /^(kg_mid|mid|kg_dfid|dfid|KuGoo|KugouIsTopVip|KugouIsTopVip_.*|KugooID|UserName|NickName|Pic|token|KuGooToken|t|a_id|ct|userid|userId|uid|vip|vip_.*|vip[A-Z].*|svip|svip_.*|svip[A-Z].*|is_vip|isVIP|isvip|IsVip|isVip|member|member_.*|member[A-Z].*|is_member|isMember|green_vip|greenVip|luxury_vip|luxuryVip|music_vip|musicVip|m_type|mType|pay_type|payType|roam_type|roamType|role|producttype|productType|autoChargeType|rawVipEndTime|vipEndTime|musicEndTime|vipRemains|musicUsed|SurplusDay|SurplusMmonth|UM_UserName)$/i;
 }
 
 function kugouKeyLooksVip(key) {
@@ -709,10 +711,22 @@ function parseKugouCompoundCookie(raw) {
   return out;
 }
 
+function expandKugouCompoundAuthFields(source) {
+  const expanded = Object.assign({}, source || {});
+  if (expanded.KuGoo) Object.assign(expanded, parseKugouCompoundCookie(expanded.KuGoo));
+  if (expanded.KugouIsTopVip) {
+    const topVip = parseKugouCompoundCookie(expanded.KugouIsTopVip);
+    Object.keys(topVip).forEach(key => {
+      expanded['KugouIsTopVip_' + key] = topVip[key];
+      if (/^isVIP$/i.test(key)) expanded.isVIP = topVip[key];
+    });
+  }
+  return expanded;
+}
+
 function mergeKugouAuthFields(target, source) {
   target = target || {};
-  source = source || {};
-  if (source.KuGoo) Object.assign(source, parseKugouCompoundCookie(source.KuGoo));
+  source = expandKugouCompoundAuthFields(source);
   Object.keys(source).forEach(key => {
     if (!key || !kugouAuthFieldPattern().test(key)) return;
     const value = source[key];
@@ -771,7 +785,7 @@ async function kugouCookieObjectFromBrowser() {
 }
 
 async function kugouTabs() {
-  return queryTabsForOrigins([KUGOU_ORIGIN, KUGOU_MOBILE_ORIGIN, KUGOU_MOBILE_ALT_ORIGIN]);
+  return queryTabsForOrigins([KUGOU_ORIGIN, KUGOU_VIP_ORIGIN, KUGOU_MOBILE_ORIGIN, KUGOU_MOBILE_ALT_ORIGIN]);
 }
 
 async function kugouAuthObjectFromTab() {
@@ -783,7 +797,7 @@ async function kugouAuthObjectFromTab() {
       target: { tabId: tab.id },
       func: function () {
         var out = {};
-        var fieldPattern = /^(kg_mid|mid|kg_dfid|dfid|KuGoo|KugooID|UserName|NickName|Pic|token|KuGooToken|t|a_id|ct|userid|userId|uid|vip|vip_.*|vip[A-Z].*|svip|svip_.*|svip[A-Z].*|is_vip|isVIP|isvip|member|member_.*|member[A-Z].*|is_member|isMember|green_vip|greenVip|luxury_vip|luxuryVip|music_vip|musicVip|m_type|mType|pay_type|payType|roam_type|roamType)$/i;
+        var fieldPattern = /^(kg_mid|mid|kg_dfid|dfid|KuGoo|KugouIsTopVip|KugouIsTopVip_.*|KugooID|UserName|NickName|Pic|token|KuGooToken|t|a_id|ct|userid|userId|uid|vip|vip_.*|vip[A-Z].*|svip|svip_.*|svip[A-Z].*|is_vip|isVIP|isvip|IsVip|isVip|member|member_.*|member[A-Z].*|is_member|isMember|green_vip|greenVip|luxury_vip|luxuryVip|music_vip|musicVip|m_type|mType|pay_type|payType|roam_type|roamType|role|producttype|productType|autoChargeType|rawVipEndTime|vipEndTime|musicEndTime|vipRemains|musicUsed|SurplusDay|SurplusMmonth|UM_UserName)$/i;
         function put(name, value) {
           if (!name || value == null || String(value) === '') return;
           if (fieldPattern.test(name) || /kugou|kg_|dfid|token|vip|svip|member|green|luxury|pay|roam|m_type|user|uid/i.test(name + ' ' + value)) out[name] = String(value);
@@ -857,48 +871,151 @@ async function kugouClearAuth() {
   return { ok: true };
 }
 
+function kugouVipHeaders(extra) {
+  return Object.assign({
+    Referer: KUGOU_VIP_ORIGIN + '/',
+    Origin: KUGOU_VIP_ORIGIN
+  }, extra || {});
+}
+
+function firstKugouValue(objects, keys) {
+  for (const obj of objects || []) {
+    if (!obj || typeof obj !== 'object') continue;
+    for (const key of keys || []) {
+      if (Object.prototype.hasOwnProperty.call(obj, key) && obj[key] != null && String(obj[key]) !== '') return obj[key];
+    }
+  }
+  return '';
+}
+
+function truthyKugouVipValue(value) {
+  if (value === true) return true;
+  const text = String(value == null ? '' : value).trim().toLowerCase();
+  if (!text) return false;
+  if (/^(true|yes|open|opened|vip|svip|member)$/.test(text)) return true;
+  const number = Number(text);
+  return Number.isFinite(number) && number > 0;
+}
+
+function parseKugouVipTimeMs(value) {
+  const text = String(value == null ? '' : value).trim();
+  if (!text || /^0+$/.test(text)) return 0;
+  const numeric = Number(text);
+  if (Number.isFinite(numeric) && numeric > 0) return numeric > 100000000000 ? numeric : numeric * 1000;
+  const normalized = text.replace(/-/g, '/');
+  const parsed = Date.parse(normalized);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function kugouVipRoleInfo(role) {
+  const value = Number(role || 0) || 0;
+  if (!value) return { vipType: 0, vipLevel: 'none', isVip: false, isSvip: false, vipLabel: 'NO_VIP' };
+  if ([3, 4, 5, 6, 11, 13].includes(value)) {
+    return { vipType: value, vipLevel: 'svip', isVip: true, isSvip: true, vipLabel: 'SVIP' };
+  }
+  if ([1, 2, 31, 33].includes(value)) {
+    return { vipType: value, vipLevel: value >= 30 ? 'music_pack' : 'vip', isVip: true, isSvip: false, vipLabel: 'VIP' };
+  }
+  return { vipType: value, vipLevel: 'vip', isVip: true, isSvip: false, vipLabel: 'VIP' };
+}
+
 function normalizeKugouVip(ctx) {
-  const vip = normalizeVipSignals(ctx || {}, 'VIP');
-  const sources = [ctx || {}, ctx && ctx.rawAuth || {}];
+  const expanded = expandKugouCompoundAuthFields(ctx || {});
+  const rawExpanded = expandKugouCompoundAuthFields(ctx && ctx.rawAuth || {});
+  const vip = normalizeVipSignals(Object.assign({}, rawExpanded, expanded), 'VIP');
+  const sources = [expanded, rawExpanded];
+  const roleInfo = kugouVipRoleInfo(firstKugouValue(sources, ['role', 'producttype', 'productType']));
   const explicitVip = firstPositiveNumberFrom(sources, [
+    'KugouIsTopVip_isVIP', 'isVIP', 'isVip', 'IsVip',
     'vipType', 'vip_type', 'viptype', 'vipLevel', 'vip_level', 'viplevel',
     'm_type', 'mType', 'memberType', 'member_type', 'memberLevel', 'member_level',
     'musicVipType', 'music_vip_type', 'musicVipLevel', 'music_vip_level',
     'greenVip', 'green_vip', 'greenVipLevel', 'green_vip_level',
     'luxuryVip', 'luxury_vip', 'luxuryVipLevel', 'luxury_vip_level',
-    'vip_type', 'vip_level', 'vip_typeid', 'vip_levelid',
+    'vip_type', 'vip_level', 'vip_typeid', 'vip_levelid', 'role', 'producttype', 'productType',
     'vip_type_', 'vip_level_', 'vip_type_id', 'vip_level_id'
   ]);
   const truthyFlags = sources.some(obj => obj && Object.keys(obj).some(key => {
-    if (!kugouKeyLooksVip(key) && !/is_vip|isvip|is_member|ismember/i.test(key)) return false;
-    const value = obj[key];
-    const text = String(value == null ? '' : value).trim().toLowerCase();
-    return value === true || Number(value) > 0 || /^(true|yes|open|opened|vip|svip|member)$/.test(text);
+    if (!kugouKeyLooksVip(key) && !/is_vip|isvip|is_member|ismember|KugouIsTopVip_isVIP/i.test(key)) return false;
+    return truthyKugouVipValue(obj[key]);
   }));
   const now = Date.now();
   const hasFutureExpire = sources.some(obj => obj && Object.keys(obj).some(key => {
-    if (!/expire|endtime|end_time|expiretime/i.test(key)) return false;
-    const raw = Number(obj[key] || 0) || 0;
-    if (!raw) return false;
-    const ms = raw > 100000000000 ? raw : raw * 1000;
-    return ms > now;
+    if (!/expire|endtime|end_time|expiretime|rawVipEndTime|vipEndTime|musicEndTime/i.test(key)) return false;
+    return parseKugouVipTimeMs(obj[key]) > now;
   }));
   const text = collectVipStringValues(sources, [], 0).join(' ').toLowerCase();
-  const svipText = /svip|super\s*vip|luxury|black\s*vip|\u8c6a\u534e|\u9ed1\u94bb/.test(text);
-  const isSvip = !!vip.isSvip || svipText || explicitVip >= 10;
-  const isVip = isSvip || !!vip.isVip || explicitVip > 0 || truthyFlags || hasFutureExpire;
+  const svipText = /svip|super\s*vip|luxury|black\s*vip|diamond|haohua|\u8c6a\u534e|\u9ed1\u94bb/.test(text);
+  const isSvip = !!roleInfo.isSvip || !!vip.isSvip || svipText || explicitVip >= 10;
+  const isVip = isSvip || !!roleInfo.isVip || !!vip.isVip || explicitVip > 0 || truthyFlags || hasFutureExpire;
   if (isVip) {
-    vip.vipType = Math.max(Number(vip.vipType || 0) || 0, explicitVip || 1);
-    vip.vipLevel = isSvip ? 'svip' : 'vip';
+    vip.vipType = Math.max(Number(vip.vipType || 0) || 0, roleInfo.vipType || explicitVip || 1);
+    vip.vipLevel = isSvip ? 'svip' : (roleInfo.vipLevel && roleInfo.vipLevel !== 'none' ? roleInfo.vipLevel : 'vip');
     vip.isVip = true;
     vip.isSvip = isSvip;
     vip.vipUnknown = false;
-    vip.vipLabel = isSvip ? 'SVIP' : 'VIP';
+    vip.vipLabel = isSvip ? 'SVIP' : (roleInfo.vipLabel && roleInfo.vipLabel !== 'NO_VIP' ? roleInfo.vipLabel : 'VIP');
   } else if (vip.vipUnknown || sources.some(obj => obj && Object.keys(obj).some(kugouKeyLooksVip))) {
     vip.vipUnknown = true;
     vip.vipLabel = 'VIP_UNKNOWN';
   }
+  vip.vipSource = firstKugouValue(sources, ['__vipSource', 'vipSource']) || (isVip ? 'local' : '');
+  vip.vipProbeFailed = !!firstKugouValue(sources, ['__vipProbeFailed', 'vipProbeFailed']);
   return vip;
+}
+
+async function kugouVipFetchJson(path, params, ctx) {
+  const url = new URL(path, KUGOU_VIP_ORIGIN);
+  Object.entries(params || {}).forEach(([key, value]) => url.searchParams.set(key, value));
+  if (!url.searchParams.has('n')) url.searchParams.set('n', String(Math.random()));
+  const cookieObj = ctx && ctx.rawAuth || {};
+  const cookieHeader = serializeCookieObject(cookieObj);
+  return kugouFetchJson(url.toString(), {
+    referrer: KUGOU_VIP_ORIGIN + '/',
+    timeoutMs: 5200,
+    headers: kugouVipHeaders(cookieHeader ? { Cookie: cookieHeader } : {})
+  });
+}
+
+async function kugouVipStatus(ctx) {
+  ctx = ctx || await kugouContext();
+  const base = Object.assign({}, ctx.rawAuth || {}, ctx);
+  const attempts = [];
+  try {
+    const cookieVip = expandKugouCompoundAuthFields(ctx.rawAuth || {});
+    if (truthyKugouVipValue(cookieVip.KugouIsTopVip_isVIP || cookieVip.isVIP || cookieVip.IsVip)) {
+      const merged = Object.assign({}, base, cookieVip, { __vipSource: 'vip_cookie' });
+      return normalizeKugouVip(merged);
+    }
+  } catch (err) {
+    attempts.push('vip_cookie:' + (err && err.message || String(err)));
+  }
+  try {
+    const roleInfo = await kugouVipFetchJson('/recharge/roleinfo', {}, ctx);
+    if (roleInfo && !roleInfo.errno && !roleInfo.error_code) {
+      const merged = Object.assign({}, base, roleInfo, { __vipSource: 'roleinfo' });
+      await saveKugouAuthObject(merged, 'vip-roleinfo');
+      return normalizeKugouVip(merged);
+    }
+    attempts.push('roleinfo:' + JSON.stringify(roleInfo || {}).slice(0, 80));
+  } catch (err) {
+    attempts.push('roleinfo:' + (err && err.message || String(err)));
+  }
+  try {
+    const data = await kugouVipFetchJson('/index.php', { r: 'ajax/getdata', cmid: '1' }, ctx);
+    if (data && Object.keys(data).length) {
+      const merged = Object.assign({}, base, data, { __vipSource: 'vip_getdata' });
+      await saveKugouAuthObject(merged, 'vip-getdata');
+      return normalizeKugouVip(merged);
+    }
+    attempts.push('vip_getdata:empty');
+  } catch (err) {
+    attempts.push('vip_getdata:' + (err && err.message || String(err)));
+  }
+  return normalizeKugouVip(Object.assign({}, base, {
+    __vipSource: 'cache',
+    __vipProbeFailed: attempts.filter(Boolean).join('; ')
+  }));
 }
 
 async function kugouContext() {
@@ -976,7 +1093,7 @@ function collectVipStringValues(value, out, depth) {
   depth = depth || 0;
   if (!value || depth > 2) return out;
   if (typeof value === 'string') {
-    if (/vip|svip|浼氬憳|榛戣兌|璞崕|缁块捇/i.test(value)) out.push(value);
+    if (/vip|svip|member|green\s*diamond|music\s*pack|luxury|black\s*vip/i.test(value)) out.push(value);
     return out;
   }
   if (Array.isArray(value)) {
@@ -1069,6 +1186,40 @@ function normalizeVipSignals(value, fallbackLabel) {
   };
 }
 
+function truthyAccountFlag(value) {
+  if (value === true) return true;
+  const text = String(value == null ? '' : value).trim().toLowerCase();
+  if (!text) return false;
+  if (/^(1|true|yes|y|open|opened|active|valid)$/.test(text)) return true;
+  const numeric = Number(text);
+  return Number.isFinite(numeric) && numeric > 0 && /^\d+(\.\d+)?$/.test(text);
+}
+
+function firstTruthyFlagFrom(objects, keys) {
+  for (const obj of objects || []) {
+    if (!obj || typeof obj !== 'object') continue;
+    for (const key of keys || []) {
+      if (!Object.prototype.hasOwnProperty.call(obj, key)) continue;
+      const value = obj[key];
+      if (value && typeof value === 'object') continue;
+      if (truthyAccountFlag(value)) return true;
+    }
+  }
+  return false;
+}
+
+function hasFutureTimeField(objects, keys) {
+  const now = Date.now();
+  for (const obj of objects || []) {
+    if (!obj || typeof obj !== 'object') continue;
+    for (const key of keys || []) {
+      if (!Object.prototype.hasOwnProperty.call(obj, key)) continue;
+      if (parseKugouVipTimeMs(obj[key]) > now) return true;
+    }
+  }
+  return false;
+}
+
 function normalizeNeteaseVip(profile, account, extra) {
   profile = profile || {};
   account = account || {};
@@ -1078,27 +1229,33 @@ function normalizeNeteaseVip(profile, account, extra) {
   const vipType = firstPositiveNumberFrom(objects, [
     'vipType', 'vip_type', 'viptype', 'musicVipType', 'music_vip_type',
     'musicVipLevel', 'music_vip_level', 'redVipLevel', 'red_vip_level',
-    'blackVipLevel', 'black_vip_level', 'luxuryVipLevel', 'luxury_vip_level',
-    'svipType', 'svip_type'
+    'blackVipLevel', 'black_vip_level', 'luxuryVipLevel', 'luxury_vip_level'
   ]);
-  const text = collectVipStringValues({ account, profile, vipInfo, extra }, [], 0).join(' ').toLowerCase();
-  const svipFlag = objects.some(obj => obj && (
-    obj.isSvip === true || obj.is_svip === true || obj.svip === true ||
-    Number(obj.isSvip || obj.is_svip || obj.svip || obj.svipType || obj.svip_type || 0) > 0
-  )) || /svip|supervip|super_vip|blackvip|black_vip|榛戣兌svip|瓒呯骇浼氬憳/.test(text);
-  const vipFlag = objects.some(obj => obj && (
-    obj.isVip === true || obj.is_vip === true || obj.vip === true ||
-    Number(obj.isVip || obj.is_vip || obj.vip || obj.vipFlag || obj.vipflag || 0) > 0
-  )) || /vip|榛戣兌|浼氬憳/.test(text);
-  const isSvip = svipFlag || vipType >= 10;
-  const isVip = isSvip || vipFlag || vipType > 0;
+  const svipType = firstPositiveNumberFrom(objects, [
+    'svipType', 'svip_type', 'svipLevel', 'svip_level',
+    'superVipType', 'super_vip_type', 'superVipLevel', 'super_vip_level'
+  ]);
+  const svipFlag = firstTruthyFlagFrom(objects, [
+    'isSvip', 'is_svip', 'svip', 'superVip', 'super_vip', 'blackSvip', 'black_svip'
+  ]);
+  const vipFlag = firstTruthyFlagFrom(objects, [
+    'isVip', 'is_vip', 'vip', 'vipFlag', 'vipflag', 'redVip', 'red_vip',
+    'blackVip', 'black_vip', 'musicVip', 'music_vip', 'isMember', 'is_member'
+  ]);
+  const expireFlag = hasFutureTimeField(objects, [
+    'vipExpireTime', 'vip_expire_time', 'vipEndTime', 'vip_end_time',
+    'redVipExpireTime', 'redVipEndTime', 'musicVipExpireTime', 'musicVipEndTime'
+  ]);
+  const isSvip = svipFlag || svipType > 0;
+  const isVip = isSvip || vipFlag || vipType > 0 || expireFlag;
   const vipLevel = isSvip ? 'svip' : (isVip ? 'vip' : 'none');
   return {
-    vipType,
+    vipType: Math.max(vipType, svipType),
     vipLevel,
     isVip,
     isSvip,
-    vipLabel: vipLevel === 'svip' ? 'SVIP' : (vipLevel === 'vip' ? 'VIP' : '鏃燰IP')
+    vipUnknown: false,
+    vipLabel: vipLevel === 'svip' ? 'SVIP' : (vipLevel === 'vip' ? 'VIP' : 'NO_VIP')
   };
 }
 
@@ -1967,13 +2124,66 @@ async function qqMusicRequest(payload, opts) {
 }
 
 function normalizeQQVip(body, cookieObj, profileBody) {
-  const blocks = [cookieObj || {}, profileBody || {}, body || {}];
-  if (body && body.vip) blocks.push(body.vip.data || body.vip);
-  if (body && body.data) blocks.push(body.data.vipInfo || body.data.vipinfo || body.data);
-  const vip = normalizeVipSignals(blocks, 'QQ VIP');
-  if (!vip.isVip && (body || profileBody || Object.keys(cookieObj || {}).some(key => /vip|green|luxury/i.test(key)))) vip.vipUnknown = true;
-  if (vip.vipUnknown && vip.vipLabel === '无 VIP') vip.vipLabel = 'VIP 未确认';
-  return vip;
+  body = body || {};
+  profileBody = profileBody || {};
+  const blocks = [];
+  function pushBlock(value) {
+    if (value && typeof value === 'object') blocks.push(value);
+  }
+  pushBlock(body.vip && (body.vip.data || body.vip));
+  pushBlock(body.data && (body.data.vipInfo || body.data.vipinfo || body.data.vip || body.data));
+  pushBlock(profileBody.vipInfo || profileBody.vipinfo || profileBody.vip);
+  const explicitBlocks = collectQQVipBlocks(blocks, [], 0);
+  const vipType = firstPositiveNumberFrom(explicitBlocks, [
+    'vipType', 'vip_type', 'musicVip', 'music_vip', 'musicVipType', 'music_vip_type',
+    'greenVip', 'green_vip', 'greenVipType', 'green_vip_type', 'vip', 'isVip', 'is_vip',
+    'vipFlag', 'vipflag', 'isOpen', 'is_open', 'isValid', 'valid'
+  ]);
+  const svipType = firstPositiveNumberFrom(explicitBlocks, [
+    'svipType', 'svip_type', 'superVip', 'super_vip', 'superVipType', 'super_vip_type',
+    'luxuryVip', 'luxury_vip', 'luxuryVipType', 'luxury_vip_type', 'isSvip', 'is_svip'
+  ]);
+  const vipFlag = firstTruthyFlagFrom(explicitBlocks, [
+    'isVip', 'is_vip', 'vip', 'greenVip', 'green_vip', 'musicVip', 'music_vip',
+    'vipFlag', 'vipflag', 'enable', 'enabled', 'isOpen', 'is_open', 'isValid', 'valid'
+  ]);
+  const svipFlag = firstTruthyFlagFrom(explicitBlocks, [
+    'isSvip', 'is_svip', 'svip', 'superVip', 'super_vip', 'luxuryVip', 'luxury_vip'
+  ]);
+  const expireFlag = hasFutureTimeField(explicitBlocks, [
+    'vipEndTime', 'vip_end_time', 'vipExpireTime', 'vip_expire_time',
+    'greenEndTime', 'green_end_time', 'musicVipEndTime', 'music_vip_end_time'
+  ]);
+  const isSvip = svipFlag || svipType > 0;
+  const isVip = isSvip || vipFlag || vipType > 0 || expireFlag;
+  return {
+    vipType: Math.max(vipType, svipType),
+    vipLevel: isSvip ? 'svip' : (isVip ? 'vip' : 'none'),
+    isVip,
+    isSvip,
+    vipUnknown: false,
+    vipLabel: isSvip ? 'SVIP' : (isVip ? 'QQ VIP' : 'NO_VIP'),
+    vipSource: explicitBlocks.length ? 'vip_api' : ''
+  };
+}
+
+function collectQQVipBlocks(value, out, depth) {
+  out = out || [];
+  if (!value || depth > 4) return out;
+  if (Array.isArray(value)) {
+    value.forEach(item => collectQQVipBlocks(item, out, depth + 1));
+    return out;
+  }
+  if (typeof value !== 'object') return out;
+  out.push(value);
+  Object.keys(value).forEach(key => {
+    const next = value[key];
+    if (!next || typeof next !== 'object') return;
+    if (depth < 1 || /vip|svip|green|music|luxury|member|package|pay|data|info|list|right/i.test(key)) {
+      collectQQVipBlocks(next, out, depth + 1);
+    }
+  });
+  return out;
 }
 
 async function qqVipProbe(cookieObj, uin) {
@@ -2009,39 +2219,22 @@ function normalizeQQProfile(body, cookieObj) {
   const openId = qqCookieOpenId(cookieObj);
   const data = body && (body.data || body.profile || body.creator || body.result) || {};
   const creator = data.creator || data.user || data.profile || data || {};
-  const vipInfo = data.vipInfo || data.vipinfo || data.vip || creator.vipInfo || creator.vipinfo || {};
   const profileNick = creator.nick || creator.nickname || creator.name || creator.hostname || creator.title || '';
   const profileAvatar = creator.headpic || creator.headurl || creator.avatar || creator.avatarUrl || creator.logo || creator.image || '';
   const nick = profileNick || qqCookieNickname(cookieObj, uin) || '';
   const avatar = profileAvatar || qqCookieAvatar(cookieObj, uin);
-  let vipType = Number(
-    cookieObj.vipType || cookieObj.vip_type ||
-    data.vipType || data.vip_type || data.viptype || data.music_vip_level || data.green_vip_level || data.luxury_vip_level ||
-    creator.vipType || creator.vip_type || creator.music_vip_level || creator.green_vip_level || creator.luxury_vip_level ||
-    vipInfo.vipType || vipInfo.vip_type || vipInfo.music_vip_level || vipInfo.green_vip_level || vipInfo.luxury_vip_level || 0
-  ) || 0;
-  if (!vipType) {
-    const vipFlag = data.isVip || data.is_vip || data.vipFlag || data.vipflag || creator.isVip || creator.is_vip || vipInfo.isVip || vipInfo.is_vip || vipInfo.vipFlag;
-    if (vipFlag === true || Number(vipFlag) > 0 || String(vipFlag || '').toLowerCase() === 'true') vipType = 1;
-  }
-  const scannedVip = normalizeQQVip(null, cookieObj, body);
-  vipType = Math.max(vipType, Number(scannedVip.vipType || 0) || 0);
-  const isVip = vipType > 0 || !!scannedVip.isVip;
-  const isSvip = !!scannedVip.isSvip || vipType >= 10;
-  const vipLevel = isSvip ? 'svip' : (isVip ? 'vip' : 'none');
-  const vipUnknown = !isVip && !!scannedVip.vipUnknown;
   return {
     provider: 'qq',
     loggedIn: qqCookieLoginReady(cookieObj),
     userId: uin,
     nickname: nick || (uin ? ('QQ ' + uin) : 'QQ Music'),
     avatar,
-    vipType,
-    vipLevel,
-    isVip,
-    isSvip,
-    vipUnknown,
-    vipLabel: isSvip ? 'SVIP' : (isVip ? 'QQ VIP' : (vipUnknown ? 'VIP_UNKNOWN' : 'NO_VIP')),
+    vipType: 0,
+    vipLevel: 'none',
+    isVip: false,
+    isSvip: false,
+    vipUnknown: false,
+    vipLabel: 'NO_VIP',
     hasCookie: !!Object.keys(cookieObj).length,
     loginCookieNames: qqCookieDiagnosticNames(cookieObj),
     playbackKeyReady: !!qqCookiePlaybackKey(cookieObj),
@@ -2056,18 +2249,21 @@ async function enrichQQStatusVip(profile, cookieObj) {
   profile = profile || {};
   const vip = await qqVipProbe(cookieObj || {}, profile.userId || qqCookieUin(cookieObj || {}));
   if (!vip) {
-    if (!profile.isVip && !profile.vipUnknown) {
-      profile.vipUnknown = !!profile.loggedIn;
-      if (profile.vipUnknown) profile.vipLabel = 'VIP_UNKNOWN';
-    }
+    profile.vipType = 0;
+    profile.vipLevel = 'none';
+    profile.isVip = false;
+    profile.isSvip = false;
+    profile.vipUnknown = false;
+    profile.vipLabel = 'NO_VIP';
     return profile;
   }
-  profile.vipType = Math.max(Number(profile.vipType || 0) || 0, Number(vip.vipType || 0) || 0);
-  profile.isSvip = !!profile.isSvip || !!vip.isSvip || profile.vipType >= 10;
-  profile.isVip = !!profile.isVip || !!vip.isVip || profile.vipType > 0 || profile.isSvip;
+  profile.vipType = Number(vip.vipType || 0) || 0;
+  profile.isSvip = !!vip.isSvip;
+  profile.isVip = !!vip.isVip || profile.isSvip;
   profile.vipLevel = profile.isSvip ? 'svip' : (profile.isVip ? 'vip' : 'none');
-  profile.vipUnknown = !profile.isVip && !!vip.vipUnknown;
-  profile.vipLabel = profile.isSvip ? 'SVIP' : (profile.isVip ? 'QQ VIP' : (profile.vipUnknown ? 'VIP_UNKNOWN' : 'NO_VIP'));
+  profile.vipUnknown = false;
+  profile.vipLabel = profile.isSvip ? 'SVIP' : (profile.isVip ? 'QQ VIP' : 'NO_VIP');
+  profile.vipSource = vip.vipSource || '';
   return profile;
 }
 
@@ -2649,7 +2845,10 @@ async function kugouStatus() {
     playbackProbeFailed: true,
     playbackProbeMessage: 'kugou_probe_timeout'
   });
-  const vip = normalizeKugouVip(Object.assign({}, ctx.rawAuth || {}, ctx));
+  const vip = await promiseWithTimeout(kugouVipStatus(ctx), 6500, normalizeKugouVip(Object.assign({}, ctx.rawAuth || {}, ctx, {
+    __vipSource: 'cache',
+    __vipProbeFailed: 'vip_probe_timeout'
+  })));
   const vipType = Number(vip.vipType || 0) || 0;
   return {
     provider: 'kugou',
@@ -2663,6 +2862,8 @@ async function kugouStatus() {
     isVip: !!vip.isVip,
     isSvip: !!vip.isSvip,
     vipUnknown: !!vip.vipUnknown,
+    vipSource: vip.vipSource || '',
+    vipProbeFailed: !!vip.vipProbeFailed,
     authCached: !!ctx.authCached,
     authCachedAt: Number(ctx.authCachedAt || 0) || 0,
     cacheAgeMs: Number(ctx.cacheAgeMs || 0) || 0,

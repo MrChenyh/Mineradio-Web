@@ -130,7 +130,7 @@ function sanitizeAccountName(value) {
 function vipLabel(status) {
   status = status || {};
   var raw = safeTrim(status.vipLabel || '');
-  if (raw === 'VIP_UNKNOWN' || status.vipUnknown) return TEXT.states.unknownVip;
+  if (raw === 'VIP_UNKNOWN' || status.vipUnknown) return '';
   if (!raw || raw === 'NO_VIP' || raw === '\u65e0 VIP' || raw === '\u65e0VIP') return '';
   var upper = raw.toUpperCase();
   if (upper.indexOf('SVIP') >= 0) return 'SVIP';
@@ -165,6 +165,17 @@ function playbackProbeText(value) {
   if (code) return '\u9177\u72d7\u64ad\u653e\u63a5\u53e3\u8fd4\u56de\u4ee3\u7801 ' + code[1];
   if (/Invalid JSON from kugou\.com/i.test(text)) return '\u9177\u72d7\u63a5\u53e3\u8fd4\u56de\u5f02\u5e38';
   return text;
+}
+
+function vipSourceText(status) {
+  var source = safeTrim(status && status.vipSource || '');
+  if (!source) return '';
+  if (source === 'vip_cookie') return '\u4f1a\u5458\u786e\u8ba4\uff1a\u9177\u72d7 VIP Cookie';
+  if (source === 'roleinfo') return '\u4f1a\u5458\u786e\u8ba4\uff1a\u9177\u72d7 VIP \u63a5\u53e3';
+  if (source === 'vip_getdata') return '\u4f1a\u5458\u786e\u8ba4\uff1a\u9177\u72d7 VIP \u9875\u9762';
+  if (source === 'cache') return status && status.vipProbeFailed ? '\u4f1a\u5458\u786e\u8ba4\uff1a\u6682\u672a\u8fde\u4e0a VIP \u63a5\u53e3' : '\u4f1a\u5458\u786e\u8ba4\uff1a\u672c\u5730\u4f1a\u8bdd';
+  if (source === 'local') return '\u4f1a\u5458\u786e\u8ba4\uff1a\u672c\u5730\u4f1a\u8bdd';
+  return '';
 }
 
 function cacheLine(status) {
@@ -268,6 +279,7 @@ function summarizeStatus(provider, status) {
       details: lineJoin([
         cacheLine(status),
         vipLabel(status) ? '\u8d26\u53f7\u7c7b\u578b\uff1a' + vipLabel(status) : '',
+        vipSourceText(status),
         status.playbackProbeMessage ? '\u64ad\u653e\u68c0\u67e5\uff1a' + playbackProbeText(status.playbackProbeMessage) : '\u64ad\u653e\u68c0\u67e5\u5df2\u901a\u8fc7'
       ]),
       tip: ''
@@ -285,6 +297,7 @@ function summarizeStatus(provider, status) {
       details: lineJoin([
         cacheLine(status),
         vipLabel(status) ? '\u8d26\u53f7\u7c7b\u578b\uff1a' + vipLabel(status) : '',
+        vipSourceText(status),
         kugouObserved ? '\u5b98\u7f51\u64ad\u653e\uff1a\u5df2\u68c0\u6d4b\u5230' : '',
         status.playbackProbeMessage ? '\u64ad\u653e\u68c0\u67e5\uff1a' + playbackProbeText(status.playbackProbeMessage) : '\u64ad\u653e\u68c0\u67e5\u672a\u901a\u8fc7'
       ]),
