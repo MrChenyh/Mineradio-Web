@@ -1,47 +1,119 @@
 # Mineradio Web
 
-Mineradio Web 是一个可部署到 GitHub Pages 的静态网页播放器。默认支持本地音乐导入和歌曲试听推荐；安装浏览器 Connector 插件后，可以使用浏览器里已登录的音乐网页会话做搜索、歌词、封面和播放地址探测。
+Mineradio Web 是一个基于 [Mineradio](https://github.com/XxHuberrr/Mineradio) 视觉方向整理出的浏览器版本尝试。它可以直接部署到 GitHub Pages，以本地优先的方式播放音乐，并通过浏览器 Connector 扩展连接网易云音乐、QQ 音乐和酷狗音乐的网页登录态。
 
-在线页面：[https://mrchenyh.github.io/Mineradio-Web/](https://mrchenyh.github.io/Mineradio-Web/)
+这个项目不是为了替代原 Electron 客户端，而是提供一个更轻量的 Web 入口：打开网页即可体验 Mineradio 的视觉播放器、粒子歌词、DIY 效果、歌单架和多平台歌单导入。
 
-## 使用方式
+在线体验：[https://mrchenyh.github.io/Mineradio-Web/](https://mrchenyh.github.io/Mineradio-Web/)
 
-1. 打开在线页面，未安装插件也可以导入本地歌曲或播放歌曲试听推荐。
-2. 下载插件包：页面启动页的“下载 Connector 插件”，或仓库里的 `web/public/downloads/mineradio-connector.zip`。
-3. 解压到一个固定文件夹。
-4. Edge 打开 `edge://extensions`，Chrome 打开 `chrome://extensions`。
-5. 开启“开发人员模式”，选择“加载解压缩的扩展”，选中刚才解压后的文件夹。
-6. 在浏览器里登录 `music.163.com`、`y.qq.com` 或 `www.kugou.com`。
-7. 刷新 Mineradio Web，插件弹窗显示账号状态后即可搜索和播放。
+## 项目亮点
 
-插件更新后，需要在扩展管理页点击“重新加载”。新版插件版本应显示为 `0.4.6`。
+- **静态 Web 版**：可部署到 GitHub Pages，不需要用户自己启动本地 Node 服务。
+- **本地优先播放**：本地音乐和试听推荐无需登录即可使用。
+- **浏览器 Connector**：通过 Chrome / Edge MV3 扩展读取用户本机已授权的网页登录态。
+- **三平台接入**：支持网易云、QQ 音乐、酷狗的搜索、播放探测和歌单能力，按真实可播状态排序。
+- **外链歌单导入**：支持网易云歌单链接、QQ 音乐歌单链接、酷狗分享歌单链接。
+- **视觉体验迁移**：保留 DIY 模式、粒子歌词、本地节拍分析、3D 歌单架、自定义歌词和封面流程。
 
-## 当前音源策略
+## 快速开始
 
-- 本地文件：不需要插件，直接导入播放。
-- 歌曲试听推荐：不需要插件，默认作为未登录托底渠道。
-- 网易云扩展：读取浏览器网页登录态，用于账号状态、首页收藏/推荐、搜索、歌词和播放探测。
-- QQ 音乐扩展：读取 QQ 音乐网页登录态，用于 QQ-X 搜索和播放探测；建议保持 `y.qq.com` 标签页打开，并先在 QQ 音乐网页播放任意歌曲刷新播放授权。0.4.6 起会在站点权限查询失败时回退扫描浏览器标签页，减少“网页已登录但插件未检测到”的情况。
-- 酷狗扩展：已接入状态检测、搜索/播放探测和分享歌单导入。把酷狗分享文本或 `t1.kugou.com/gcid_...` 链接粘到 Mineradio 搜索框即可导入公开 H5 能读取到的歌曲。
-- Apple Music、汽水音乐等渠道仍标记为“正在加入中”，稳定前不作为默认可用音源。
+### 只体验 Web 页面
 
-如果你使用系统或浏览器代理，音乐平台请求会跟随代理出口；网易云、QQ 音乐、酷狗等域名建议在代理软件里设为国内直连，否则可能因为地区/IP 风控导致登录态可见但播放地址被拦截。
+直接打开在线页面即可：
 
-播放失败时，播放器会先自动查找同名同歌手的其他音源；收藏/歌单播放时，如果当前歌曲不可播，会继续尝试下一首。最后由歌曲试听推荐托底。
+[https://mrchenyh.github.io/Mineradio-Web/](https://mrchenyh.github.io/Mineradio-Web/)
 
-## 油猴脚本
+未安装 Connector 时，仍可使用：
 
-辅助脚本在 `tampermonkey/mineradio-helper.user.js`。
+- 本地音乐导入
+- 歌曲试听推荐
+- 基础播放器和视觉效果
+- DIY / 粒子 / 歌词等本地能力
 
-安装方式：
-1. 安装 Tampermonkey。
-2. 新建脚本，把 `tampermonkey/mineradio-helper.user.js` 内容粘贴进去并保存。
-3. 在网易云、QQ 音乐、酷狗网页上会出现一个 Mineradio 浮动按钮。
-4. 点击按钮会打开 Mineradio Web，并把当前网页标题作为搜索词带过去。
+### 安装 Connector 扩展
 
-油猴脚本只是快捷入口和搜索辅助，不能完整替代浏览器扩展。原因是它没有 MV3 扩展级的 cookies、跨站请求和媒体请求头权限，不能稳定接管各音乐平台的登录态和播放地址探测。
+如需使用网易云、QQ 音乐、酷狗的账号歌单、搜索和播放探测，请安装浏览器扩展。
 
-## 开发
+1. 下载扩展包：页面启动页的“下载 Connector 插件”，或仓库内的 `web/public/downloads/mineradio-connector.zip`。
+2. 解压到一个固定文件夹，不要放在临时目录。
+3. Edge 打开 `edge://extensions`，Chrome 打开 `chrome://extensions`。
+4. 开启“开发人员模式”。
+5. 点击“加载解压缩的扩展”，选择刚才解压后的文件夹。
+6. 打开或刷新 Mineradio Web。
+7. 在浏览器中登录 `music.163.com`、`y.qq.com`、`www.kugou.com` 后，回到 Mineradio Web 使用。
+
+当前 Connector 版本：`0.5.6`。扩展更新后，需要在扩展管理页点击“重新加载”。
+
+## 功能状态
+
+| 能力 | 无扩展 | 网易云 | QQ 音乐 | 酷狗 |
+| --- | --- | --- | --- | --- |
+| 本地音乐播放 | 可用 | 可用 | 可用 | 可用 |
+| 歌曲试听推荐 | 可用 | 可用 | 可用 | 可用 |
+| 平台搜索 | 不可用 | 可用 | 可用 | 可用，按播放探测结果降权 |
+| 平台歌单 | 不可用 | 我的歌单 / 每日推荐 | 我的歌单 / 歌单详情 | 暂不做账号歌单 |
+| 外链歌单导入 | 不可用 | 可用 | 可用 | 可用，受酷狗 H5 接口开放数量限制 |
+| 播放地址探测 | 不可用 | 可用 | 可用 | 可用但更依赖网页授权和接口返回 |
+| VIP 显示 | 不显示 | 仅在能确认时显示 | 仅在能确认时显示 | 仅在能确认时显示 |
+
+酷狗分享歌单如果官方 H5 页面只返回部分歌曲，Mineradio Web 会显示部分导入数量，而不会伪装成完整导入。
+
+## 歌单导入
+
+顶部输入框现在只保留两个主要动作：`搜索` 和 `导入歌单`。
+
+支持粘贴：
+
+- 网易云音乐歌单链接
+- QQ 音乐歌单链接
+- 酷狗分享文本或 `gcid_...` 歌单链接
+
+最近导入的歌单会显示在首页歌单区域最前面，也会进入歌单面板和 3D 歌单架。
+
+## 视觉与 DIY
+
+Web 版目前保留并适配了原项目中可以直接在浏览器运行的视觉能力：
+
+- DIY 模式
+- 视觉控制台
+- 粒子歌词
+- 本地节拍分析
+- 3D 歌单架
+- 自定义歌词
+- 自定义封面
+- 默认 FX 档案
+
+以下能力属于 Electron 桌面端专属，本仓库暂不迁移到 GitHub Pages 版本：
+
+- 桌面歌词独立窗口
+- 壁纸窗口
+- 全局快捷键
+- Electron 主进程 API
+- 系统级窗口管理
+
+## 网络与代理建议
+
+音乐平台请求会跟随浏览器或系统网络环境。如果你使用代理，建议把以下域名设置为国内直连：
+
+- `music.163.com`
+- `*.music.126.net`
+- `y.qq.com`
+- `u.y.qq.com`
+- `c.y.qq.com`
+- `*.qqmusic.qq.com`
+- `*.kugou.com`
+
+海外出口可能触发平台地区限制或风控，表现为“已登录但无法返回播放地址”。
+
+## Tampermonkey 辅助脚本
+
+仓库提供一个可选油猴脚本：`tampermonkey/mineradio-helper.user.js`。
+
+安装后，网易云、QQ 音乐、酷狗网页上会出现 Mineradio 浮动按钮。点击按钮会打开 Mineradio Web，并把当前网页标题作为搜索词带过去。
+
+油猴脚本只是快捷入口，不能替代 Connector 扩展。原因是油猴脚本没有 MV3 扩展级的 cookies、跨站请求和媒体请求头权限。
+
+## 本地开发
 
 ```bash
 npm install
@@ -56,12 +128,39 @@ npm run build:web
 npm run preview:web
 ```
 
-Edge 插件测试：
+Edge 扩展测试：
 
 ```bash
 npm run test:edge-extension
 ```
 
-## 授权与声明
+GitHub Pages 会通过 `.github/workflows/pages.yml` 自动执行 `npm run build:web`，并发布 `web/dist`。
 
-本项目来自 Mineradio Web 迁移实验，保留原项目 GPL-3.0 授权与来源说明。音乐平台内容、账号和播放权限归各平台所有，本项目仅做个人学习和本地测试用途。
+## 目录结构
+
+```text
+web/public/          Web 页面源码和静态资源
+extension/           Chrome / Edge Connector 扩展源码
+tampermonkey/        可选油猴辅助脚本
+scripts/             构建、打包和本地预览脚本
+bridge/              本地桥接实验代码
+release/             本地打包产物目录
+```
+
+根目录下的 `manifest.json`、`service-worker.js`、`popup.js`、`popup.html`、`content-script.js` 是扩展副本，用于兼容误加载根目录扩展的场景；正式维护时请与 `extension/` 保持同步。
+
+## 隐私与声明
+
+- 本项目不会内置任何平台账号、Cookie 或播放凭据。
+- 平台会话信息只保存在用户本机浏览器和 Connector 扩展环境中。
+- 本项目不提供、不分发任何版权音频资源。
+- 音乐平台内容、账号权益、播放权限归各平台所有。
+- 本仓库仅用于个人学习、Web 化迁移实验和本地测试。
+
+## 与原项目的关系
+
+本项目基于 Mineradio 的视觉与产品方向做 Web 化探索，保留原项目 GPL-3.0 授权与来源说明。原项目地址：
+
+[https://github.com/XxHuberrr/Mineradio](https://github.com/XxHuberrr/Mineradio)
+
+如果后续向原项目提交 PR，建议把 Web 版作为可选入口、独立目录或实验性分支接入，不影响原 Electron 桌面端主线。
