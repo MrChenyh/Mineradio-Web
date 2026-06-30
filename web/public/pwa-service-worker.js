@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE_NAME = 'mineradio-pwa-v1';
+const CACHE_NAME = 'mineradio-pwa-v2';
 const CORE_ASSETS = [
   './',
   './index.html',

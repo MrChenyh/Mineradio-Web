@@ -8,6 +8,10 @@ const KUGOU_MOBILE_ALT_ORIGIN = 'https://m3ws.kugou.com';
 const KUWO_ORIGIN = 'https://www.kuwo.cn';
 const KUWO_BD_ORIGIN = 'https://bd.kuwo.cn';
 const QQ_ORIGIN = 'https://y.qq.com';
+const APPLE_MUSIC_ORIGIN = 'https://music.apple.com';
+const ITUNES_ORIGIN = 'https://itunes.apple.com';
+const QISHUI_SHARE_ORIGIN = 'https://qishui.douyin.com';
+const QISHUI_MUSIC_ORIGIN = 'https://music.douyin.com';
 const QQ_MUSICU_URL = 'https://u.y.qq.com/cgi-bin/musicu.fcg';
 const QQ_SMARTBOX_URL = 'https://c.y.qq.com/splcloud/fcgi-bin/smartbox_new.fcg';
 const KUGOU_SIGN_SECRET = 'NVPh5oo715z5DIWAeQlhMDsWXXQV4hwt';
@@ -29,6 +33,8 @@ const NETEASE_PLAYLIST_TRACK_LIMIT = 500;
 const QQ_PLAYLIST_TRACK_LIMIT = 500;
 const KUGOU_SHARED_PLAYLIST_TRACK_LIMIT = 500;
 const KUWO_PLAYLIST_TRACK_LIMIT = 300;
+const APPLE_MUSIC_PLAYLIST_TRACK_LIMIT = 500;
+const QISHUI_PLAYLIST_TRACK_LIMIT = 300;
 const KUGOU_PROBE_QUERIES = ['\u5468\u6770\u4f26 \u6674\u5929', '\u9648\u5955\u8fc5 \u5341\u5e74', 'Taylor Swift Love Story'];
 const NETEASE_AUTH_STORE_KEY = 'mineradio.neteaseAuth.v1';
 const QQ_AUTH_STORE_KEY = 'mineradio.qqAuth.v1';
@@ -167,6 +173,8 @@ function headersForUrl(url, extra) {
   if (host.includes('kugou.com')) return kugouHeaders(extra);
   if (host.includes('kuwo.cn')) return kuwoHeaders(extra);
   if (host.includes('qq.com') || host.includes('qpic.cn') || host.includes('gtimg.cn') || host.includes('qlogo.cn')) return qqHeaders(extra);
+  if (host.includes('apple.com') || host.includes('mzstatic.com')) return Object.assign({ Referer: APPLE_MUSIC_ORIGIN + '/' }, extra || {});
+  if (host.includes('douyin.com') || host.includes('douyinpic.com') || host.includes('qishui.com')) return Object.assign({ Referer: QISHUI_MUSIC_ORIGIN + '/' }, extra || {});
   return neteaseHeaders(extra);
 }
 
@@ -2163,6 +2171,298 @@ async function kuwoSharedPlaylist(payload) {
   return kuwoPlaylistTracks(payload);
 }
 
+function cleanExternalText(value) {
+  return decodeHtmlEntities(stripHtml(String(value || '')))
+    .replace(/\\u002F/g, '/')
+    .replace(/\\\//g, '/')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function extractFirstHtmlMatch(html, pattern) {
+  const match = String(html || '').match(pattern);
+  return match ? cleanExternalText(match[1] || '') : '';
+}
+
+function externalUrlFromInput(value) {
+  const raw = String(value || '').trim();
+  const match = raw.match(/https?:\/\/[^\s"'<>]+/i);
+  return (match ? match[0] : raw).replace(/[，。；;、\])}]+$/g, '');
+}
+
+function parseIsoDurationSeconds(value) {
+  const text = String(value || '').trim();
+  const match = text.match(/^P(?:T)?(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/i);
+  if (!match) return 0;
+  return (Number(match[1] || 0) || 0) * 3600 + (Number(match[2] || 0) || 0) * 60 + (Number(match[3] || 0) || 0);
+}
+
+function appleTrackIdFromUrl(url) {
+  const text = String(url || '');
+  const match = text.match(/\/song\/[^/?#]+\/(\d{5,})/i) || text.match(/[?&]i=(\d{5,})/i) || text.match(/\/(\d{5,})(?:[?#]|$)/);
+  return match ? match[1] : '';
+}
+
+function parseApplePlaylistId(value) {
+  const raw = String(value || '').trim();
+  const direct = raw.match(/\bpl\.[a-z0-9]+\b/i);
+  if (direct) return direct[0];
+  const target = externalUrlFromInput(raw);
+  try {
+    const parsed = new URL(target);
+    if (!/(^|\.)music\.apple\.com$/.test(parsed.hostname.toLowerCase())) return '';
+    const hit = parsed.pathname.match(/\/(pl\.[a-z0-9]+)(?:$|[/?#])/i);
+    return hit ? hit[1] : '';
+  } catch (err) {
+    return '';
+  }
+}
+
+function normalizeAppleMusicTrack(raw, lookup) {
+  raw = raw || {};
+  lookup = lookup || {};
+  const audio = raw.audio || {};
+  const songUrl = raw.url || audio.url || audio.potentialAction && audio.potentialAction.target && audio.potentialAction.target.actionPlatform || '';
+  const id = String(lookup.trackId || appleTrackIdFromUrl(songUrl) || raw.id || '').trim();
+  const name = cleanExternalText(lookup.trackName || raw.name || audio.name || '');
+  return {
+    provider: 'apple-music-import',
+    source: 'apple-music-import',
+    type: 'apple-music-import',
+    publicProvider: 'apple-music-import',
+    publicSourceLabel: 'Apple Music',
+    id: id || ('apple:' + name),
+    mid: id,
+    name,
+    artist: cleanExternalText(lookup.artistName || raw.byArtist && raw.byArtist.name || ''),
+    album: cleanExternalText(lookup.collectionName || raw.inAlbum && raw.inAlbum.name || ''),
+    cover: ensureHttpsAudioUrl(lookup.artworkUrl100 ? String(lookup.artworkUrl100).replace(/100x100bb/, '600x600bb') : (audio.thumbnailUrl || raw.thumbnailUrl || '')),
+    duration: lookup.trackTimeMillis ? Math.round(Number(lookup.trackTimeMillis) / 1000) : parseIsoDurationSeconds(raw.duration || audio.duration),
+    previewUrl: ensureHttpsAudioUrl(lookup.previewUrl || ''),
+    publicAudioUrl: ensureHttpsAudioUrl(lookup.previewUrl || ''),
+    streamUrl: '',
+    playable: true,
+    trial: !!lookup.previewUrl,
+    playbackChecked: false,
+    playbackFallbackOnly: true,
+    playbackProbeDeferred: true,
+    importedSourceUrl: songUrl
+  };
+}
+
+async function appleLookupTracks(ids) {
+  ids = Array.from(new Set((ids || []).map(id => String(id || '').trim()).filter(Boolean))).slice(0, APPLE_MUSIC_PLAYLIST_TRACK_LIMIT);
+  const out = {};
+  for (let i = 0; i < ids.length; i += 100) {
+    const batch = ids.slice(i, i + 100);
+    if (!batch.length) continue;
+    try {
+      const url = ITUNES_ORIGIN + '/lookup?' + new URLSearchParams({ id: batch.join(','), entity: 'song', country: 'CN' }).toString();
+      const data = await fetchJson(url, {
+        credentials: 'omit',
+        timeoutMs: 9000,
+        headers: { Referer: APPLE_MUSIC_ORIGIN + '/' }
+      });
+      (Array.isArray(data && data.results) ? data.results : []).forEach(item => {
+        if (item && item.wrapperType === 'track' && item.trackId) out[String(item.trackId)] = item;
+      });
+    } catch (err) {
+      console.warn('[Mineradio Connector] Apple lookup failed', err && err.message || err);
+    }
+  }
+  return out;
+}
+
+async function appleMusicSharedPlaylist(payload) {
+  const input = payload && (payload.url || payload.text || payload.q || payload.input || payload.id);
+  const playlistId = parseApplePlaylistId(input);
+  const target = externalUrlFromInput(input);
+  if (!playlistId && !/^https?:\/\//i.test(target)) throw new Error('Missing Apple Music playlist URL');
+  const html = await fetchText(target, {
+    credentials: 'omit',
+    timeoutMs: 14000,
+    referrer: APPLE_MUSIC_ORIGIN + '/',
+    headers: {
+      Referer: APPLE_MUSIC_ORIGIN + '/',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126 Safari/537.36'
+    }
+  });
+  const schemaText = extractFirstHtmlMatch(html, /<script[^>]+id=["']?schema:music-playlist["']?[^>]*>([\s\S]*?)<\/script>/i);
+  if (!schemaText) throw new Error('Apple Music playlist metadata is unavailable');
+  let schema = null;
+  try { schema = JSON.parse(schemaText); }
+  catch (err) { throw new Error('Apple Music playlist parse failed'); }
+  const rawTracks = (Array.isArray(schema.track) ? schema.track : []).slice(0, APPLE_MUSIC_PLAYLIST_TRACK_LIMIT);
+  const ids = rawTracks.map(track => appleTrackIdFromUrl(track && (track.url || track.audio && track.audio.potentialAction && track.audio.potentialAction.target && track.audio.potentialAction.target.actionPlatform))).filter(Boolean);
+  const lookup = await appleLookupTracks(ids);
+  const tracks = rawTracks.map(track => normalizeAppleMusicTrack(track, lookup[appleTrackIdFromUrl(track && (track.url || track.audio && track.audio.potentialAction && track.audio.potentialAction.target && track.audio.potentialAction.target.actionPlatform))])).filter(song => song.name);
+  if (!tracks.length) throw new Error('Apple Music playlist has no readable tracks');
+  const cover = tracks.find(song => song.cover) && tracks.find(song => song.cover).cover || extractFirstHtmlMatch(html, /<meta[^>]+(?:property|name)=["'](?:og:image|twitter:image)["'][^>]+content=["']([^"']+)["']/i);
+  const total = Number(schema.numTracks || tracks.length) || tracks.length;
+  const playlist = {
+    provider: 'apple-music-import',
+    source: 'apple-music-import',
+    type: 'playlist',
+    id: playlistId || parseApplePlaylistId(schema.url) || String(Date.now()),
+    name: cleanExternalText(schema.name || extractFirstHtmlMatch(html, /<meta[^>]+(?:property|name)=["'](?:og:title|twitter:title|title)["'][^>]+content=["']([^"']+)["']/i) || 'Apple Music Playlist'),
+    cover: ensureHttpsAudioUrl(cover || ''),
+    trackCount: total,
+    loadedCount: tracks.length,
+    partial: total > tracks.length,
+    partialReason: total > tracks.length ? 'apple_music_connector_limit' : '',
+    playCount: 0,
+    creator: cleanExternalText(schema.author && schema.author.name || 'Apple Music'),
+    tag: 'Apple Music'
+  };
+  return {
+    provider: 'apple-music-import',
+    playlist,
+    tracks,
+    trackCount: total,
+    loadedCount: tracks.length,
+    partial: playlist.partial,
+    partialReason: playlist.partialReason
+  };
+}
+
+function parseQishuiPlaylistId(value) {
+  const raw = String(value || '').trim();
+  const direct = raw.match(/(?:playlist_id|playlist)[:=\/\s]+(\d{5,})/i);
+  if (direct) return direct[1];
+  const target = externalUrlFromInput(raw);
+  try {
+    const parsed = new URL(target);
+    return parsed.searchParams.get('playlist_id') || '';
+  } catch (err) {
+    return '';
+  }
+}
+
+function qishuiImageUrl(raw) {
+  const text = cleanExternalText(raw).replace(/\\u002F/g, '/');
+  if (!text) return '';
+  if (/^https?:\/\//i.test(text)) return ensureHttpsAudioUrl(text);
+  return text;
+}
+
+function extractQishuiMeta(html, name) {
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return extractFirstHtmlMatch(html, new RegExp(`<meta[^>]+(?:name|property|itemprop)=["']${escaped}["'][^>]+content=["']([^"']+)["']`, 'i'));
+}
+
+function qishuiTrackId(name, artist, index) {
+  return 'qishui:' + simpleHashHex([name, artist, index].join('|'));
+}
+
+function simpleHashHex(value) {
+  let hash = 2166136261;
+  const text = String(value || '');
+  for (let i = 0; i < text.length; i++) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 16777619) >>> 0;
+  }
+  return hash.toString(16);
+}
+
+function normalizeQishuiTrack(name, meta, cover, index) {
+  name = cleanExternalText(name);
+  meta = cleanExternalText(meta);
+  if (!name || name.length > 120) return null;
+  if (/^(\d+|播放|打开|下载|汽水音乐)$/.test(name)) return null;
+  let artist = '';
+  let album = '';
+  if (meta) {
+    const parts = meta.split(/\s*[•·-]\s*/).map(cleanExternalText).filter(Boolean);
+    artist = parts[0] || '';
+    album = parts.slice(1).join(' · ');
+  }
+  return {
+    provider: 'qishui-import',
+    source: 'qishui-import',
+    type: 'qishui-import',
+    publicProvider: 'qishui-import',
+    publicSourceLabel: '汽水音乐',
+    id: qishuiTrackId(name, artist, index),
+    mid: '',
+    name,
+    artist,
+    album,
+    cover: cover || '',
+    duration: 0,
+    playable: true,
+    playbackChecked: false,
+    playbackFallbackOnly: true,
+    playbackProbeDeferred: true,
+    playbackMessage: 'qishui_import_needs_source_match'
+  };
+}
+
+function parseQishuiRenderedTracks(html, cover) {
+  const tracks = [];
+  const seen = new Set();
+  const rowRe = /<div[^>]*style=["'][^"']*padding-top:14px;[^"']*padding-bottom:14px;[^"']*["'][^>]*>([\s\S]*?)(?=<div[^>]*style=["'][^"']*padding-top:14px;[^"']*padding-bottom:14px;|<\/body>|$)/gi;
+  let row;
+  while ((row = rowRe.exec(String(html || ''))) && tracks.length < QISHUI_PLAYLIST_TRACK_LIMIT) {
+    const ps = Array.from(row[1].matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi)).map(match => cleanExternalText(match[1])).filter(Boolean);
+    if (ps.length < 2) continue;
+    const song = normalizeQishuiTrack(ps[0], ps[1], cover, tracks.length);
+    if (!song || seen.has(song.name + '|' + song.artist)) continue;
+    seen.add(song.name + '|' + song.artist);
+    tracks.push(song);
+  }
+  return tracks;
+}
+
+async function qishuiSharedPlaylist(payload) {
+  const input = payload && (payload.url || payload.text || payload.q || payload.input || payload.id);
+  const target = externalUrlFromInput(input);
+  if (!/^https?:\/\//i.test(target)) throw new Error('Missing Qishui playlist URL');
+  const fetched = await fetchTextWithTimeout(target, {
+    method: 'GET',
+    redirect: 'follow',
+    credentials: 'omit',
+    cache: 'no-store',
+    referrer: QISHUI_MUSIC_ORIGIN + '/',
+    headers: {
+      Referer: QISHUI_MUSIC_ORIGIN + '/',
+      'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1'
+    }
+  }, 16000);
+  if (!fetched.res.ok) throw new Error('HTTP ' + fetched.res.status + ': Qishui playlist request failed');
+  const html = fetched.text || '';
+  const finalUrl = fetched.res.url || target;
+  const id = parseQishuiPlaylistId(finalUrl) || parseQishuiPlaylistId(html) || simpleHashHex(finalUrl);
+  const name = extractQishuiMeta(html, 'title') || extractQishuiMeta(html, 'og:title') || extractQishuiMeta(html, 'name') || '汽水音乐歌单';
+  const cover = qishuiImageUrl(extractQishuiMeta(html, 'image') || extractQishuiMeta(html, 'og:image'));
+  const tracks = parseQishuiRenderedTracks(html, cover);
+  const trackCount = tracks.length || Number((html.match(/(\d+)\s*首/) || [])[1] || 0) || 0;
+  const partial = !tracks.length || (trackCount > tracks.length);
+  const playlist = {
+    provider: 'qishui-import',
+    source: 'qishui-import',
+    type: 'playlist',
+    id,
+    name: cleanExternalText(name),
+    cover,
+    trackCount: trackCount || tracks.length,
+    loadedCount: tracks.length,
+    partial,
+    partialReason: partial ? (tracks.length ? 'qishui_connector_limit' : 'qishui_metadata_only') : '',
+    playCount: 0,
+    creator: '汽水音乐',
+    tag: '汽水音乐'
+  };
+  return {
+    provider: 'qishui-import',
+    playlist,
+    tracks,
+    trackCount: playlist.trackCount,
+    loadedCount: tracks.length,
+    partial,
+    partialReason: playlist.partialReason
+  };
+}
+
 
 
 function parseCookieString(raw) {
@@ -3842,6 +4142,8 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     if (action === 'kugou.songUrl') return jsonResponse(requestId, await kugouSongUrl(payload));
     if (action === 'kuwo.playlistTracks') return jsonResponse(requestId, await kuwoPlaylistTracks(payload));
     if (action === 'kuwo.sharedPlaylist') return jsonResponse(requestId, await kuwoSharedPlaylist(payload));
+    if (action === 'appleMusic.sharedPlaylist') return jsonResponse(requestId, await appleMusicSharedPlaylist(payload));
+    if (action === 'qishui.sharedPlaylist') return jsonResponse(requestId, await qishuiSharedPlaylist(payload));
     if (action === 'qq.status') return jsonResponse(requestId, { status: await qqStatus() });
     if (action === 'qq.saveAuth') return jsonResponse(requestId, await qqSaveAuth(payload));
     if (action === 'qq.clearAuth') return jsonResponse(requestId, await qqClearAuth());
