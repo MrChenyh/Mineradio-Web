@@ -25,8 +25,8 @@ const QQ_QUALITY_CANDIDATE_TEMPLATES = [
 ];
 const NETEASE_HOME_PLAYLIST_LIMIT = 50;
 const NETEASE_HOME_PLAYLIST_RENDER_LIMIT = 48;
-const NETEASE_PLAYLIST_TRACK_LIMIT = 240;
-const QQ_PLAYLIST_TRACK_LIMIT = 240;
+const NETEASE_PLAYLIST_TRACK_LIMIT = 500;
+const QQ_PLAYLIST_TRACK_LIMIT = 500;
 const KUGOU_SHARED_PLAYLIST_TRACK_LIMIT = 500;
 const KUWO_PLAYLIST_TRACK_LIMIT = 300;
 const KUGOU_PROBE_QUERIES = ['\u5468\u6770\u4f26 \u6674\u5929', '\u9648\u5955\u8fc5 \u5341\u5e74', 'Taylor Swift Love Story'];
@@ -1444,9 +1444,29 @@ async function neteasePlaylistTracks(payload) {
   if (!id) throw new Error('Missing playlist id');
   const data = await neteaseFetchJson(NETEASE_ORIGIN + '/api/v6/playlist/detail?' + new URLSearchParams({ id, n: '1000', s: '8', t: Date.now().toString() }).toString());
   const playlist = data && data.playlist || {};
-  let tracks = (playlist.tracks || []).map(normalizeSong).filter(song => song.id && song.name).slice(0, NETEASE_PLAYLIST_TRACK_LIMIT);
+  const trackIds = (Array.isArray(playlist.trackIds) ? playlist.trackIds : []).map(item => Number(item && item.id || item)).filter(Boolean);
+  const desiredIds = trackIds.slice(0, NETEASE_PLAYLIST_TRACK_LIMIT);
+  let tracks = (playlist.tracks || []).map(normalizeSong).filter(song => song.id && song.name);
+  if (desiredIds.length && tracks.length < desiredIds.length) {
+    const existing = new Set(tracks.map(song => Number(song.id)).filter(Boolean));
+    const missingDetails = await neteaseSongDetails(desiredIds.filter(songId => !existing.has(songId)));
+    const byId = new Map(tracks.map(song => [Number(song.id), song]));
+    missingDetails.forEach((detail, songId) => byId.set(Number(songId), normalizeSong(detail)));
+    tracks = desiredIds.map(songId => byId.get(Number(songId))).filter(song => song && song.id && song.name);
+  } else {
+    tracks = tracks.slice(0, NETEASE_PLAYLIST_TRACK_LIMIT);
+  }
   tracks = await enrichNeteaseSongs(tracks);
-  return { provider: 'netease-extension', playlist: normalizeNeteasePlaylist(playlist, 'playlist'), tracks };
+  const trackCount = Number(playlist.trackCount || trackIds.length || tracks.length) || tracks.length;
+  const loadedCount = tracks.length;
+  const partial = trackCount > loadedCount;
+  const playlistInfo = Object.assign(normalizeNeteasePlaylist(playlist, 'playlist'), {
+    trackCount,
+    loadedCount,
+    partial,
+    partialReason: partial ? 'netease_connector_limit' : ''
+  });
+  return { provider: 'netease-extension', playlist: playlistInfo, tracks, trackCount, loadedCount, partial, partialReason: playlistInfo.partialReason };
 }
 
 async function neteaseSearch(payload) {
@@ -1497,8 +1517,12 @@ async function neteaseSongDetails(ids) {
   const out = new Map();
   if (!ids.length) return out;
   try {
-    const data = await neteaseFetchJson(NETEASE_ORIGIN + '/api/song/detail?ids=' + encodeURIComponent(JSON.stringify(ids)));
-    ((data && data.songs) || []).forEach(song => out.set(Number(song.id), song));
+    for (let i = 0; i < ids.length; i += 200) {
+      const chunk = ids.slice(i, i + 200).map(Number).filter(Boolean);
+      if (!chunk.length) continue;
+      const data = await neteaseFetchJson(NETEASE_ORIGIN + '/api/song/detail?ids=' + encodeURIComponent(JSON.stringify(chunk)));
+      ((data && data.songs) || []).forEach(song => out.set(Number(song.id), song));
+    }
   } catch (err) {
     console.warn('[Mineradio Connector] detail enrich failed', err);
   }
@@ -2838,6 +2862,8 @@ function parseNeteasePlaylistId(value) {
 function parseQQPlaylistId(value) {
   const raw = String(value || '').trim();
   if (!raw) return '';
+  const prefixed = raw.match(/(?:^|[^a-z0-9])qq:(\d{5,})(?:\D|$)/i);
+  if (prefixed) return prefixed[1];
   if (/^\d{5,}$/.test(raw)) return raw;
   const urlMatch = raw.match(/https?:\/\/[^\s"'<>]+/i);
   const target = urlMatch ? urlMatch[0].replace(/[锛屻€傘€佲€溾€濃€樷€欙級)\]]+$/g, '') : raw;
@@ -2852,6 +2878,35 @@ function parseQQPlaylistId(value) {
   } catch (err) {}
   const textHit = raw.match(/(?:disstid|tid|playlist)[:=\/\s]+(\d{5,})/i);
   return textHit ? textHit[1] : '';
+}
+
+async function resolveQQPlaylistInput(value) {
+  const id = parseQQPlaylistId(value);
+  if (id) return id;
+  const raw = String(value || '').trim();
+  const urlMatch = raw.match(/https?:\/\/[^\s"'<>]+/i);
+  if (!urlMatch) return '';
+  const target = urlMatch[0].replace(/[閿涘被鈧倶鈧讲鈧壕鈧績鈧ǚ鈧瑱绱?\]]+$/g, '');
+  let parsed = null;
+  try { parsed = new URL(target); } catch (err) {}
+  if (!parsed || !/(^|\.)qq\.com$/.test(parsed.hostname.toLowerCase())) return '';
+  try {
+    const fetched = await fetchTextWithTimeout(target, {
+      method: 'GET',
+      redirect: 'manual',
+      credentials: 'omit',
+      cache: 'no-store',
+      referrer: QQ_ORIGIN + '/',
+      headers: qqHeaders({
+        Referer: QQ_ORIGIN + '/',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126 Safari/537.36'
+      })
+    }, 6500);
+    const location = fetched.res && fetched.res.headers && fetched.res.headers.get('location') || '';
+    return parseQQPlaylistId(location) || parseQQPlaylistId(fetched.text || '');
+  } catch (err) {
+    return '';
+  }
 }
 
 async function neteaseSharedPlaylist(payload) {
@@ -2905,7 +2960,7 @@ async function qqPlaylists() {
 }
 
 async function qqPlaylistTracks(payload) {
-  const id = parseQQPlaylistId(payload && (payload.id || payload.disstid || payload.url || payload.text || payload.q || payload.input));
+  const id = await resolveQQPlaylistInput(payload && (payload.id || payload.disstid || payload.url || payload.text || payload.q || payload.input));
   if (!id) throw new Error('Missing QQ playlist id');
   const cookieObj = await promiseWithTimeout(qqAuthObjectFromBrowser(), 3000, {});
   const uin = qqCookieUin(cookieObj) || '0';
@@ -2928,6 +2983,9 @@ async function qqPlaylistTracks(payload) {
     playbackChecked: false,
     playbackProbeDeferred: true
   }));
+  const trackCount = Number(detail.total_song_num || detail.songnum || tracks.length) || tracks.length;
+  const loadedCount = tracks.length;
+  const partial = trackCount > loadedCount;
   return {
     loggedIn: true,
     provider: 'qq-extension',
@@ -2938,11 +2996,18 @@ async function qqPlaylistTracks(payload) {
       id,
       name: detail.dissname || detail.diss_name || detail.name || 'QQ Music Playlist',
       cover: detail.logo || detail.diss_cover || '',
-      trackCount: Number(detail.total_song_num || detail.songnum || tracks.length) || tracks.length,
+      trackCount,
+      loadedCount,
+      partial,
+      partialReason: partial ? 'qq_connector_limit' : '',
       playCount: Number(detail.visitnum || detail.listen_num || 0) || 0,
       creator: detail.nickname || detail.nick || detail.hostname || 'QQ Music'
     },
-    tracks
+    tracks,
+    trackCount,
+    loadedCount,
+    partial,
+    partialReason: partial ? 'qq_connector_limit' : ''
   };
 }
 

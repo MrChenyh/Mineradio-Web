@@ -42,7 +42,7 @@ Mineradio Web 是一个基于 [Mineradio](https://github.com/XxHuberrr/Mineradio
 6. 打开或刷新 Mineradio Web。
 7. 在浏览器中登录 `music.163.com`、`y.qq.com`、`www.kugou.com` 后，回到 Mineradio Web 使用。
 
-当前 Connector 版本：`0.5.8`。扩展更新后，需要在扩展管理页点击“重新加载”。
+当前 Connector 版本：`0.5.9`。扩展更新后，需要在扩展管理页点击“重新加载”。
 
 ## 功能状态
 
@@ -65,7 +65,7 @@ Mineradio Web 是一个基于 [Mineradio](https://github.com/XxHuberrr/Mineradio
 支持粘贴：
 
 - 网易云音乐歌单链接
-- QQ 音乐歌单链接
+- QQ 音乐歌单链接或 `c*.y.qq.com/base/fcgi-bin/u` 分享短链
 - 酷狗分享文本、`gcid_...` 歌单链接或 `collection_...` 集合 ID
 
 最近导入的歌单会显示在首页歌单区域最前面，也会进入歌单面板和 3D 歌单架。
