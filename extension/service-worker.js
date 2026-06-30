@@ -2893,6 +2893,22 @@ async function resolveQQPlaylistInput(value) {
   try {
     const fetched = await fetchTextWithTimeout(target, {
       method: 'GET',
+      redirect: 'follow',
+      credentials: 'omit',
+      cache: 'no-store',
+      referrer: QQ_ORIGIN + '/',
+      headers: qqHeaders({
+        Referer: QQ_ORIGIN + '/',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126 Safari/537.36'
+      })
+    }, 6500);
+    const finalUrl = fetched.res && fetched.res.url || '';
+    const resolvedId = parseQQPlaylistId(finalUrl) || parseQQPlaylistId(fetched.text || '');
+    if (resolvedId) return resolvedId;
+  } catch (err) {}
+  try {
+    const fetched = await fetchTextWithTimeout(target, {
+      method: 'GET',
       redirect: 'manual',
       credentials: 'omit',
       cache: 'no-store',
