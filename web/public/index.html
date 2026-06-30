@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Mineradio</title>
 <meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#050608">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/mineradio-icon-192.png">
+<link rel="apple-touch-icon" href="icons/mineradio-icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Inter:wght@200;300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700;900&family=UnifrakturCook:wght@700&display=swap" rel="stylesheet">
 <script src="vendor/three.r128.min.js"></script>
 <script src="vendor/music-tempo.min.js"></script>
@@ -390,6 +394,11 @@ body.empty-home-active.controls-visible #empty-home{bottom:128px}
 #upload-btn:hover{border-color:rgba(0,245,212,.50);background:rgba(0,245,212,.075);color:#fff;box-shadow:0 16px 46px rgba(0,245,212,.08),inset 0 1px 0 rgba(255,255,255,.10)}
 #visual-guide-btn{font-size:18px;font-weight:780;line-height:1;color:rgba(255,255,255,.68);border-color:rgba(255,255,255,.10);background:rgba(255,255,255,.04)}
 #visual-guide-btn:hover{color:#fff;border-color:rgba(255,83,103,.40);background:rgba(255,83,103,.10);box-shadow:0 14px 38px rgba(255,83,103,.08)}
+#install-app-btn{display:none;border-color:rgba(0,245,212,.24);background:rgba(0,245,212,.055);color:rgba(214,248,255,.80);box-shadow:0 10px 32px rgba(0,0,0,.22),inset 0 1px 0 rgba(255,255,255,.08)}
+#install-app-btn.available{display:flex}
+#install-app-btn svg{width:19px;height:19px;stroke:currentColor;stroke-width:1.9;fill:none;stroke-linecap:round;stroke-linejoin:round}
+#install-app-btn:hover{border-color:rgba(0,245,212,.50);background:rgba(0,245,212,.10);color:#fff;box-shadow:0 16px 46px rgba(0,245,212,.10),inset 0 1px 0 rgba(255,255,255,.10)}
+#install-app-btn.installed{display:none}
 #web-diy-entry-btn{width:auto;min-width:58px;padding:0 14px;border-radius:24px;font-size:12px;font-weight:780;letter-spacing:.08em;color:rgba(0,245,212,.80);border-color:rgba(0,245,212,.24);background:rgba(0,245,212,.06);box-shadow:0 10px 32px rgba(0,0,0,.22),inset 0 1px 0 rgba(255,255,255,.08)}
 #web-diy-entry-btn span{position:relative;z-index:1}
 #web-diy-entry-btn::after{content:'';width:6px;height:6px;margin-left:7px;border-radius:50%;background:rgba(0,245,212,.88);box-shadow:0 0 14px rgba(0,245,212,.55);opacity:.42;transform:scale(.82);transition:opacity .24s,transform .24s}
@@ -2076,6 +2085,9 @@ html.control-glass-svg-ok #visual-guide-btn:hover{
 
 <!-- 顶部右侧 (只保留用户) -->
 <div id="top-right">
+  <button id="install-app-btn" class="icon-btn" type="button" onclick="installMineradioPwa()" title="安装为桌面应用" aria-label="安装为桌面应用">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v10"/><path d="m8 9 4 4 4-4"/><path d="M5 14v4.5A2.5 2.5 0 0 0 7.5 21h9a2.5 2.5 0 0 0 2.5-2.5V14"/></svg>
+  </button>
   <button id="user-capsule-hide-btn" class="user-capsule-hide-btn" type="button" onclick="toggleUserCapsuleAutoHide(event)" title="自动隐藏账号胶囊">‹</button>
   <button id="home-btn" class="icon-btn" onclick="goHome()" title="回到 Home" aria-label="回到 Home">
     <svg width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24"><path d="M3 10.8 12 3l9 7.8"/><path d="M5 10v10h14V10"/><path d="M9.5 20v-5h5v5"/></svg>
@@ -17928,6 +17940,87 @@ async function ensureConnectorAvailable(timeoutMs) {
     return false;
   }
 }
+var deferredPwaInstallPrompt = null;
+var pwaInstallState = { supportedDesktop: false, ready: false, installed: false };
+function isDesktopPwaTarget() {
+  var ua = navigator.userAgent || '';
+  var platform = navigator.platform || '';
+  var isWindows = /Win/i.test(platform) || /Windows/i.test(ua);
+  var isMac = /Mac/i.test(platform) && !/Mobile|iPhone|iPad|iPod/i.test(ua);
+  var isChromium = /Chrome|Chromium|Edg\//i.test(ua) && !/OPR\//i.test(ua);
+  var isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(ua);
+  return (isWindows || isMac) && isChromium && !isMobile;
+}
+function isPwaStandalone() {
+  return window.matchMedia && window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+}
+function updatePwaInstallButton() {
+  var btn = document.getElementById('install-app-btn');
+  if (!btn) return;
+  pwaInstallState.supportedDesktop = isDesktopPwaTarget();
+  pwaInstallState.installed = isPwaStandalone();
+  var available = pwaInstallState.supportedDesktop && !pwaInstallState.installed && !!deferredPwaInstallPrompt;
+  btn.classList.toggle('available', available);
+  btn.classList.toggle('installed', pwaInstallState.installed);
+  btn.disabled = !available;
+  btn.setAttribute('aria-hidden', available ? 'false' : 'true');
+  btn.setAttribute('tabindex', available ? '0' : '-1');
+}
+async function installMineradioPwa() {
+  if (!isDesktopPwaTarget()) {
+    showToast('当前安装按钮仅支持 Windows / macOS 的 Chrome 或 Edge');
+    return;
+  }
+  if (isPwaStandalone()) {
+    showToast('Mineradio 已在桌面应用窗口中运行');
+    updatePwaInstallButton();
+    return;
+  }
+  if (!deferredPwaInstallPrompt) {
+    showToast('浏览器还没有开放安装入口，请稍后刷新再试');
+    updatePwaInstallButton();
+    return;
+  }
+  var connectorOk = await ensureConnectorAvailable(1400);
+  showToast(connectorOk ? 'Connector 已连接，安装后仍会使用同一网页作用域' : '未检测到 Connector，安装后可继续加载插件解锁平台能力');
+  var promptEvent = deferredPwaInstallPrompt;
+  deferredPwaInstallPrompt = null;
+  updatePwaInstallButton();
+  try {
+    promptEvent.prompt();
+    var choice = await promptEvent.userChoice;
+    if (choice && choice.outcome === 'accepted') showToast('Mineradio 正在安装到桌面');
+    else showToast('已取消安装');
+  } catch (e) {
+    showToast('安装入口打开失败，请使用浏览器地址栏的安装按钮');
+  }
+}
+function setupPwaInstallPrompt() {
+  pwaInstallState.supportedDesktop = isDesktopPwaTarget();
+  updatePwaInstallButton();
+  if ('serviceWorker' in navigator && window.isSecureContext) {
+    navigator.serviceWorker.register('pwa-service-worker.js').catch(function(e){
+      console.warn('PWA service worker registration failed:', e);
+    });
+  }
+  window.addEventListener('beforeinstallprompt', function(e){
+    if (!isDesktopPwaTarget() || isPwaStandalone()) return;
+    e.preventDefault();
+    deferredPwaInstallPrompt = e;
+    pwaInstallState.ready = true;
+    updatePwaInstallButton();
+  });
+  window.addEventListener('appinstalled', function(){
+    deferredPwaInstallPrompt = null;
+    pwaInstallState.installed = true;
+    updatePwaInstallButton();
+    showToast('Mineradio 已安装为桌面应用');
+  });
+  if (window.matchMedia) {
+    var displayMode = window.matchMedia('(display-mode: standalone)');
+    if (displayMode && displayMode.addEventListener) displayMode.addEventListener('change', updatePwaInstallButton);
+  }
+}
 function versionAtLeast(version, minimum) {
   var a = String(version || '').split('.').map(function(part){ return parseInt(part, 10) || 0; });
   var b = String(minimum || '').split('.').map(function(part){ return parseInt(part, 10) || 0; });
@@ -28059,6 +28152,7 @@ function markSplashReadyToEnter() {
 
 document.addEventListener('DOMContentLoaded', function(){
   document.body.classList.add('web-shell', 'local-first-shell', 'connector-enter-allowed');
+  setupPwaInstallPrompt();
   var s = document.getElementById('splash');
   if (!s) return;
   markAppPerf('dom-content-loaded');
