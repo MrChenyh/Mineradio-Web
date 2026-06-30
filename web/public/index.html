@@ -15588,7 +15588,7 @@ async function loadConnectorPlaylistData(provider, id, opts) {
     return connectorRequest('qq.playlistTracks', { id: id.replace(/^qq:/, '') }, opts.timeoutMs || 16000);
   }
   if (provider === 'kugou') {
-    if (!connectorSupportsKugouSharedPlaylist()) throw new Error('需要 Mineradio Connector 0.4.3 或更新版本读取酷狗分享歌单');
+    if (!connectorSupportsKugouSharedPlaylist()) throw new Error('需要 Mineradio Connector 0.5.8 或更新版本读取完整酷狗分享歌单');
     return connectorRequest('kugou.sharedPlaylist', { text: id, url: id }, opts.timeoutMs || 18000);
   }
   if (provider === 'kuwo') {
@@ -18057,7 +18057,7 @@ function connectorSupportsKugouPlayback() {
   return connectorSupportsKugou() && !!(connectorState.kugouStatus && connectorState.kugouStatus.playbackReady);
 }
 function connectorSupportsKugouSharedPlaylist() {
-  return connectorState.available && versionAtLeast(connectorState.version, '0.4.3');
+  return connectorState.available && versionAtLeast(connectorState.version, '0.5.8');
 }
 function connectorSupportsQQPlaylists() {
   return connectorState.available && versionAtLeast(connectorState.version, '0.5.0');
@@ -18940,7 +18940,7 @@ async function importSharedPlaylist(q, opts) {
     return true;
   }
   if (share.provider === 'kugou' && !connectorSupportsKugouSharedPlaylist()) {
-    showSourceFallbackNotice('需要更新 Mineradio Connector', '酷狗分享歌单导入需要 0.4.3 或更新版本的浏览器扩展。');
+    showSourceFallbackNotice('需要更新 Mineradio Connector', '完整酷狗分享歌单导入需要 0.5.8 或更新版本的浏览器扩展。');
     return true;
   }
   var requestSeq = ++searchRequestSeq;
@@ -18990,7 +18990,7 @@ async function importKugouSharedPlaylist(q, opts) {
   if (detectPlaylistShareInput(q)) return importSharedPlaylist(q, opts);
   await ensureConnectorAvailable(1800);
   if (!connectorSupportsKugouSharedPlaylist()) {
-    showSourceFallbackNotice('需要更新 Mineradio Connector', '酷狗分享歌单导入需要 0.4.3 或更新版本的浏览器扩展。');
+    showSourceFallbackNotice('需要更新 Mineradio Connector', '完整酷狗分享歌单导入需要 0.5.8 或更新版本的浏览器扩展。');
     return false;
   }
   var requestSeq = ++searchRequestSeq;

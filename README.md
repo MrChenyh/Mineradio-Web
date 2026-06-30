@@ -42,7 +42,7 @@ Mineradio Web 是一个基于 [Mineradio](https://github.com/XxHuberrr/Mineradio
 6. 打开或刷新 Mineradio Web。
 7. 在浏览器中登录 `music.163.com`、`y.qq.com`、`www.kugou.com` 后，回到 Mineradio Web 使用。
 
-当前 Connector 版本：`0.5.7`。扩展更新后，需要在扩展管理页点击“重新加载”。
+当前 Connector 版本：`0.5.8`。扩展更新后，需要在扩展管理页点击“重新加载”。
 
 ## 功能状态
 
@@ -52,11 +52,11 @@ Mineradio Web 是一个基于 [Mineradio](https://github.com/XxHuberrr/Mineradio
 | 歌曲试听推荐 | 可用 | 可用 | 可用 | 可用 |
 | 平台搜索 | 不可用 | 可用 | 可用 | 可用，按播放探测结果降权 |
 | 平台歌单 | 不可用 | 我的歌单 / 每日推荐 | 我的歌单 / 歌单详情 | 暂不做账号歌单 |
-| 外链歌单导入 | 不可用 | 可用 | 可用 | 可用，受酷狗 H5 接口开放数量限制 |
+| 外链歌单导入 | 不可用 | 可用 | 可用 | 可用，`gcid_...` 分享优先解码完整歌单 |
 | 播放地址探测 | 不可用 | 可用 | 可用 | 可用但更依赖网页授权和接口返回 |
 | VIP 显示 | 不显示 | 仅在能确认时显示 | 仅在能确认时显示 | 仅在能确认时显示 |
 
-酷狗分享歌单如果官方 H5 页面只返回部分歌曲，Mineradio Web 会显示部分导入数量，而不会伪装成完整导入。
+酷狗 `gcid_...` 分享歌单会先通过 Connector 解码为完整集合 ID，再分页读取歌曲；如果酷狗接口临时不可用，才会回落到官方 H5 页面暴露的部分歌曲，并显示部分导入数量。
 
 ## 歌单导入
 
@@ -66,7 +66,7 @@ Mineradio Web 是一个基于 [Mineradio](https://github.com/XxHuberrr/Mineradio
 
 - 网易云音乐歌单链接
 - QQ 音乐歌单链接
-- 酷狗分享文本或 `gcid_...` 歌单链接
+- 酷狗分享文本、`gcid_...` 歌单链接或 `collection_...` 集合 ID
 
 最近导入的歌单会显示在首页歌单区域最前面，也会进入歌单面板和 3D 歌单架。
 
