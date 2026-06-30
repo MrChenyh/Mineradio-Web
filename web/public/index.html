@@ -15530,6 +15530,7 @@ function normalizePlaylistRecord(pl, fallbackProvider) {
     trackCount: Number(pl.trackCount || pl.count || 0) || 0,
     playCount: Number(pl.playCount || 0) || 0,
     creator: pl.creator || '',
+    importUrl: pl.importUrl || pl.import_url || pl.url || '',
     subscribed: !!pl.subscribed,
     imported: !!pl.imported,
     importedAt: Number(pl.importedAt || 0) || 0,
@@ -15607,11 +15608,11 @@ async function loadConnectorPlaylistData(provider, id, opts) {
   }
   if (provider === 'apple-music-import') {
     if (!connectorSupportsExternalPlaylistImport()) throw new Error('Need Mineradio Connector 0.5.12 or newer for Apple Music playlists');
-    return connectorRequest('appleMusic.sharedPlaylist', { id: id.replace(/^apple:/, ''), text: id, url: id }, opts.timeoutMs || 22000);
+    return connectorRequest('appleMusic.sharedPlaylist', { id: id.replace(/^apple:/, ''), text: opts.text || opts.url || id, url: opts.url || opts.text || id }, opts.timeoutMs || 22000);
   }
   if (provider === 'qishui-import') {
     if (!connectorSupportsExternalPlaylistImport()) throw new Error('Need Mineradio Connector 0.5.12 or newer for Qishui playlists');
-    return connectorRequest('qishui.sharedPlaylist', { id: id.replace(/^qishui:/, ''), text: id, url: id }, opts.timeoutMs || 22000);
+    return connectorRequest('qishui.sharedPlaylist', { id: id.replace(/^qishui:/, ''), text: opts.text || opts.url || id, url: opts.url || opts.text || id }, opts.timeoutMs || 22000);
   }
   return connectorRequest('netease.playlistTracks', { id: id.replace(/^netease:/, '') }, opts.timeoutMs || 14000);
 }
@@ -19015,7 +19016,8 @@ async function importSharedPlaylist(q, opts) {
       trackCount: res.trackCount || (res.playlist && res.playlist.trackCount),
       loadedCount: res.loadedCount || tracks.length,
       partial: !!res.partial,
-      partialReason: res.partialReason || ''
+      partialReason: res.partialReason || '',
+      importUrl: res.playlist && res.playlist.importUrl || q
     }), share.provider);
     if (pl.id) rememberImportedSharedPlaylist(pl);
     if (share.provider === 'kugou') tryRefreshConnectorStatus();
@@ -21413,7 +21415,7 @@ async function openPlaylistPanelDetail(provider, pid, title) {
   scrollPlaylistPanelDetailIntoView(key);
   try {
     var r = LOCAL_FIRST_MODE && connectorState.available
-      ? await loadConnectorPlaylistData(provider, pid, { timeoutMs: playlistConnectorTimeoutMs(provider) })
+      ? await loadConnectorPlaylistData(provider, pid, { timeoutMs: playlistConnectorTimeoutMs(provider), url: pl.importUrl || '', text: pl.importUrl || '' })
       : (provider === 'qq'
         ? await apiJson('/api/qq/playlist/tracks?id=' + encodeURIComponent(pid))
         : await apiJson('/api/playlist/tracks?id=' + encodeURIComponent(pid)));
@@ -21715,10 +21717,12 @@ async function loadPlaylistIntoQueueById(id, autoplay, title) {
   updateEmptyHomeVisibility();
   showLoading();
   var playlistReq = resolvePlaylistRequest(id);
+  var savedPlaylist = userPlaylists.find(function(item){ return playlistPanelKey(item.provider, item.id) === playlistPanelKey(playlistReq.provider, playlistReq.id); }) || null;
+  var importUrl = savedPlaylist && savedPlaylist.importUrl || '';
   var r = null;
   try {
     r = LOCAL_FIRST_MODE && connectorState.available
-      ? await loadConnectorPlaylistData(playlistReq.provider, playlistReq.id, { timeoutMs: playlistConnectorTimeoutMs(playlistReq.provider) })
+      ? await loadConnectorPlaylistData(playlistReq.provider, playlistReq.id, { timeoutMs: playlistConnectorTimeoutMs(playlistReq.provider), url: importUrl, text: importUrl })
       : (playlistReq.provider === 'qq'
         ? await apiJson('/api/qq/playlist/tracks?id=' + encodeURIComponent(playlistReq.id))
         : await apiJson('/api/playlist/tracks?id=' + encodeURIComponent(playlistReq.id)));

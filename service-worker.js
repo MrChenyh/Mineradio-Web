@@ -2190,6 +2190,15 @@ function externalUrlFromInput(value) {
   return (match ? match[0] : raw).replace(/[，。；;、\])}]+$/g, '');
 }
 
+function firstHttpUrlFromValues(values) {
+  for (const value of values || []) {
+    const text = String(value || '').trim();
+    const match = text.match(/https?:\/\/[^\s"'<>]+/i);
+    if (match) return match[0].replace(/[，。；;、\])}]+$/g, '');
+  }
+  return '';
+}
+
 function parseIsoDurationSeconds(value) {
   const text = String(value || '').trim();
   const match = text.match(/^P(?:T)?(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/i);
@@ -2216,6 +2225,13 @@ function parseApplePlaylistId(value) {
   } catch (err) {
     return '';
   }
+}
+
+function applePlaylistUrlFromInput(input, playlistId) {
+  const directUrl = firstHttpUrlFromValues([input]);
+  if (directUrl) return directUrl;
+  const id = playlistId || parseApplePlaylistId(input);
+  return id ? (APPLE_MUSIC_ORIGIN + '/cn/playlist/' + encodeURIComponent(id)) : '';
 }
 
 function normalizeAppleMusicTrack(raw, lookup) {
@@ -2274,10 +2290,11 @@ async function appleLookupTracks(ids) {
 }
 
 async function appleMusicSharedPlaylist(payload) {
-  const input = payload && (payload.url || payload.text || payload.q || payload.input || payload.id);
-  const playlistId = parseApplePlaylistId(input);
-  const target = externalUrlFromInput(input);
-  if (!playlistId && !/^https?:\/\//i.test(target)) throw new Error('Missing Apple Music playlist URL');
+  payload = payload || {};
+  const input = payload.url || payload.text || payload.q || payload.input || payload.id;
+  const playlistId = parseApplePlaylistId(input) || parseApplePlaylistId(payload.id);
+  const target = applePlaylistUrlFromInput(firstHttpUrlFromValues([payload.url, payload.text, payload.q, payload.input]) || input, playlistId);
+  if (!target) throw new Error('Missing Apple Music playlist URL');
   const html = await fetchText(target, {
     credentials: 'omit',
     timeoutMs: 14000,
@@ -2304,6 +2321,7 @@ async function appleMusicSharedPlaylist(payload) {
     source: 'apple-music-import',
     type: 'playlist',
     id: playlistId || parseApplePlaylistId(schema.url) || String(Date.now()),
+    importUrl: target,
     name: cleanExternalText(schema.name || extractFirstHtmlMatch(html, /<meta[^>]+(?:property|name)=["'](?:og:title|twitter:title|title)["'][^>]+content=["']([^"']+)["']/i) || 'Apple Music Playlist'),
     cover: ensureHttpsAudioUrl(cover || ''),
     trackCount: total,
@@ -2327,6 +2345,8 @@ async function appleMusicSharedPlaylist(payload) {
 
 function parseQishuiPlaylistId(value) {
   const raw = String(value || '').trim();
+  const prefixed = raw.match(/(?:^|[^a-z0-9])qishui:(\d{5,})(?:\D|$)/i);
+  if (prefixed) return prefixed[1];
   const direct = raw.match(/(?:playlist_id|playlist)[:=\/\s]+(\d{5,})/i);
   if (direct) return direct[1];
   const target = externalUrlFromInput(raw);
@@ -2336,6 +2356,13 @@ function parseQishuiPlaylistId(value) {
   } catch (err) {
     return '';
   }
+}
+
+function qishuiPlaylistUrlFromInput(input, playlistId) {
+  const directUrl = firstHttpUrlFromValues([input]);
+  if (directUrl) return directUrl;
+  const id = playlistId || parseQishuiPlaylistId(input);
+  return /^\d{5,}$/.test(String(id || '')) ? (QISHUI_MUSIC_ORIGIN + '/qishui/share/playlist?playlist_id=' + encodeURIComponent(id)) : '';
 }
 
 function qishuiImageUrl(raw) {
@@ -2414,9 +2441,10 @@ function parseQishuiRenderedTracks(html, cover) {
 }
 
 async function qishuiSharedPlaylist(payload) {
-  const input = payload && (payload.url || payload.text || payload.q || payload.input || payload.id);
-  const target = externalUrlFromInput(input);
-  if (!/^https?:\/\//i.test(target)) throw new Error('Missing Qishui playlist URL');
+  payload = payload || {};
+  const input = payload.url || payload.text || payload.q || payload.input || payload.id;
+  const target = qishuiPlaylistUrlFromInput(firstHttpUrlFromValues([payload.url, payload.text, payload.q, payload.input]) || input, parseQishuiPlaylistId(payload.id));
+  if (!target) throw new Error('Missing Qishui playlist URL');
   const fetched = await fetchTextWithTimeout(target, {
     method: 'GET',
     redirect: 'follow',
@@ -2442,6 +2470,7 @@ async function qishuiSharedPlaylist(payload) {
     source: 'qishui-import',
     type: 'playlist',
     id,
+    importUrl: finalUrl,
     name: cleanExternalText(name),
     cover,
     trackCount: trackCount || tracks.length,
