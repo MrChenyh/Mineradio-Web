@@ -163,4 +163,3 @@ release/             本地打包产物目录
 
 [https://github.com/XxHuberrr/Mineradio](https://github.com/XxHuberrr/Mineradio)
 
-如果后续向原项目提交 PR，建议把 Web 版作为可选入口、独立目录或实验性分支接入，不影响原 Electron 桌面端主线。
