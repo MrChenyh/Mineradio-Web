@@ -2180,9 +2180,43 @@ function cleanExternalText(value) {
     .trim();
 }
 
+function firstTruthyString(values) {
+  for (const value of values || []) {
+    if (value == null) continue;
+    const text = cleanExternalText(value);
+    if (text) return text;
+  }
+  return '';
+}
+
 function extractFirstHtmlMatch(html, pattern) {
   const match = String(html || '').match(pattern);
   return match ? cleanExternalText(match[1] || '') : '';
+}
+
+function extractFirstJsonLikeImage(value) {
+  const text = String(value || '');
+  const patterns = [
+    /"(?:coverUrl|cover_url|cover|image|imageUrl|image_url|picUrl|pic_url|avatarThumb|avatar_thumb|thumbUrl|thumb_url)"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"/i,
+    /"url_list"\s*:\s*\[\s*"([^"\\]*(?:\\.[^"\\]*)*)"/i,
+    /(https?:\\?\/\\?\/[^"'<>\s]+\.(?:jpg|jpeg|png|webp)(?:[^"'<>\s]*)?)/i
+  ];
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (!match) continue;
+    let raw = match[1] || '';
+    try { raw = JSON.parse('"' + raw.replace(/"/g, '\\"') + '"'); } catch (err) {}
+    raw = cleanExternalText(raw).replace(/\\u002F/g, '/').replace(/\\\//g, '/');
+    if (raw) return raw;
+  }
+  return '';
+}
+
+function normalizeImageUrl(raw) {
+  let text = cleanExternalText(raw).replace(/\\u002F/g, '/').replace(/\\\//g, '/');
+  if (!text) return '';
+  if (/^\/\//.test(text)) text = 'https:' + text;
+  return /^https?:\/\//i.test(text) ? ensureHttpsAudioUrl(text) : '';
 }
 
 function externalUrlFromInput(value) {
@@ -2230,10 +2264,10 @@ function parseApplePlaylistId(value) {
 
 function applePlaylistUrlFromInput(input, playlistId) {
   const id = playlistId || parseApplePlaylistId(input);
-  if (id && /^apple:/i.test(String(input || ''))) return APPLE_MUSIC_ORIGIN + '/cn/playlist/' + encodeURIComponent(id);
+  if (id) return APPLE_MUSIC_ORIGIN + '/cn/playlist/' + encodeURIComponent(id);
   const directUrl = firstHttpUrlFromValues([input]);
   if (directUrl) return directUrl;
-  return id ? (APPLE_MUSIC_ORIGIN + '/cn/playlist/' + encodeURIComponent(id)) : '';
+  return '';
 }
 
 function normalizeAppleMusicTrack(raw, lookup) {
@@ -2368,10 +2402,16 @@ function qishuiPlaylistUrlFromInput(input, playlistId) {
 }
 
 function qishuiImageUrl(raw) {
-  const text = cleanExternalText(raw).replace(/\\u002F/g, '/');
-  if (!text) return '';
-  if (/^https?:\/\//i.test(text)) return ensureHttpsAudioUrl(text);
-  return text;
+  return normalizeImageUrl(raw);
+}
+
+function extractQishuiImage(html) {
+  return qishuiImageUrl(
+    extractQishuiMeta(html, 'image') ||
+    extractQishuiMeta(html, 'og:image') ||
+    extractQishuiMeta(html, 'twitter:image') ||
+    extractFirstJsonLikeImage(html)
+  );
 }
 
 function extractQishuiMeta(html, name) {
@@ -2463,7 +2503,7 @@ async function qishuiSharedPlaylist(payload) {
   const finalUrl = fetched.res.url || target;
   const id = parseQishuiPlaylistId(finalUrl) || parseQishuiPlaylistId(html) || simpleHashHex(finalUrl);
   const name = extractQishuiMeta(html, 'title') || extractQishuiMeta(html, 'og:title') || extractQishuiMeta(html, 'name') || '汽水音乐歌单';
-  const cover = qishuiImageUrl(extractQishuiMeta(html, 'image') || extractQishuiMeta(html, 'og:image'));
+  const cover = extractQishuiImage(html);
   const tracks = parseQishuiRenderedTracks(html, cover);
   const trackCount = tracks.length || Number((html.match(/(\d+)\s*首/) || [])[1] || 0) || 0;
   const partial = !tracks.length || (trackCount > tracks.length);
@@ -3259,6 +3299,66 @@ function qqAlbumCover(albumMid, size) {
   return 'https://y.qq.com/music/photo_new/T002R' + px + 'x' + px + 'M000' + albumMid + '.jpg?max_age=2592000';
 }
 
+function qqImageUrl(raw) {
+  return normalizeImageUrl(raw);
+}
+
+function qqCoverFromFields(item) {
+  item = item || {};
+  const album = item.album || item.al || {};
+  const trackInfo = item.track_info || item.songInfo || item.songinfo || item.song || {};
+  return qqImageUrl(firstTruthyString([
+    item.logo,
+    item.diss_cover,
+    item.picurl,
+    item.picurl2,
+    item.picUrl,
+    item.cover,
+    item.coverUrl,
+    item.cover_url,
+    item.image,
+    item.img,
+    item.albumPic,
+    item.albumpic,
+    item.albumcover,
+    item.albumCover,
+    album.picUrl,
+    album.picurl,
+    album.cover,
+    album.coverUrl,
+    album.image,
+    album.img,
+    trackInfo.cover,
+    trackInfo.picurl,
+    trackInfo.picUrl,
+    trackInfo.image,
+    trackInfo.img
+  ]));
+}
+
+function qqAlbumMidFromFields(item, fallback) {
+  item = item || {};
+  fallback = fallback || {};
+  const album = item.album || item.al || {};
+  return firstTruthyString([
+    album.mid,
+    album.pmid,
+    album.albumMid,
+    album.album_mid,
+    album.albummid,
+    item.albummid,
+    item.albumMid,
+    item.album_mid,
+    fallback.albumMid,
+    fallback.albummid
+  ]);
+}
+
+function qqPlaylistCover(pl) {
+  pl = pl || {};
+  return qqCoverFromFields(pl) || qqAlbumCover(pl.album_pic_mid || pl.pic_mid || pl.albummid || '', 300);
+}
+
 function mapQQArtists(raw) {
   return (Array.isArray(raw) ? raw : []).map(item => ({
     id: item && item.id,
@@ -3282,7 +3382,7 @@ function mapQQSmartSong(item) {
     artist: item.singer || '',
     artists: item.singer ? [{ name: item.singer }] : [],
     album: '',
-    cover: '',
+    cover: qqCoverFromFields(item),
     duration: 0,
     fee: 0,
     playable: false
@@ -3295,7 +3395,8 @@ function mapQQTrack(track, fallback) {
   const album = track.album || {};
   const artists = mapQQArtists(track.singer || track.singers || []);
   const mid = track.mid || track.songmid || fallback.mid || fallback.songmid || '';
-  const albumMid = album.mid || album.pmid || track.albummid || fallback.albumMid || '';
+  const albumMid = qqAlbumMidFromFields(track, fallback);
+  const cover = qqCoverFromFields(track) || qqAlbumCover(albumMid, 300) || qqImageUrl(fallback.cover || '');
   return {
     provider: 'qq-extension',
     source: 'qq-extension',
@@ -3312,7 +3413,7 @@ function mapQQTrack(track, fallback) {
     artistMid: artists[0] && artists[0].mid,
     album: album.name || album.title || track.albumname || fallback.album || '',
     albumMid,
-    cover: qqAlbumCover(albumMid, 300) || fallback.cover || '',
+    cover,
     duration: Number(track.interval || fallback.duration || 0) || 0,
     fee: track.pay && Number(track.pay.pay_play) ? 1 : 0,
     playable: false
@@ -3338,7 +3439,7 @@ function mapQQPlaylist(pl, kind) {
     type: 'playlist',
     id: id ? String(id) : '',
     name: pl.diss_name || pl.name || pl.title || '',
-    cover: pl.diss_cover || pl.logo || pl.picurl || pl.cover || '',
+    cover: qqPlaylistCover(pl),
     trackCount: Number(pl.song_cnt || pl.songnum || pl.total_song_num || pl.song_count || 0) || 0,
     playCount: Number(pl.listen_num || pl.visitnum || pl.play_count || 0) || 0,
     creator: pl.hostname || pl.nick || pl.creator || 'QQ Music',
@@ -3350,6 +3451,8 @@ function mapQQPlaylist(pl, kind) {
 function mapQQPlaylistTrack(raw) {
   raw = raw || {};
   const track = raw.songid || raw.songmid || raw.mid || raw.name ? raw : (raw.track_info || raw.songInfo || raw.songinfo || raw.song || {});
+  const albumMid = qqAlbumMidFromFields(track, raw);
+  const cover = qqCoverFromFields(track) || qqCoverFromFields(raw) || qqAlbumCover(albumMid, 300);
   return mapQQTrack(track, {
     id: raw.id || raw.songid || '',
     qqId: raw.id || raw.songid || '',
@@ -3359,7 +3462,8 @@ function mapQQPlaylistTrack(raw) {
     name: raw.songname || raw.name || '',
     artist: raw.singername || '',
     album: raw.albumname || '',
-    albumMid: raw.albummid || '',
+    albumMid,
+    cover,
     duration: raw.interval || 0
   });
 }
@@ -3548,7 +3652,7 @@ async function qqPlaylistTracks(payload) {
       type: 'playlist',
       id,
       name: detail.dissname || detail.diss_name || detail.name || detail.title || 'QQ Music Playlist',
-      cover: detail.logo || detail.diss_cover || detail.picurl || detail.picurl2 || '',
+      cover: qqPlaylistCover(detail),
       trackCount,
       loadedCount,
       partial,

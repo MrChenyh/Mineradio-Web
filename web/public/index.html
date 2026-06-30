@@ -1386,6 +1386,11 @@ body.desktop-shell.diy-mode #bottom-bar.stage-mode{left:50%;width:min(1080px,cal
 .pl-card{display:flex;align-items:center;gap:10px;padding:9px;border-radius:11px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.04);transition:all .2s;cursor:pointer;margin-bottom:7px;will-change:transform,opacity}
 .pl-card:hover{background:rgba(255,255,255,.06)}
 .pl-card img{width:44px;height:44px;border-radius:8px;object-fit:cover;background:rgba(255,255,255,.06);flex-shrink:0}
+.pl-card-main{flex:1;min-width:0}
+.pl-delete-btn{width:30px;height:30px;border:1px solid rgba(255,255,255,.08);border-radius:9px;background:rgba(255,255,255,.035);color:rgba(255,255,255,.42);display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:.55;flex:0 0 auto;transition:all .16s}
+.pl-delete-btn svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.pl-card:hover .pl-delete-btn,.pl-delete-btn:focus-visible{opacity:1}
+.pl-delete-btn:hover{border-color:rgba(255,86,100,.42);background:rgba(255,86,100,.14);color:#fff;transform:translateY(-1px)}
 .pl-load-more{width:100%;height:30px;margin:8px 0 2px;display:flex;align-items:center;justify-content:center}
 .pl-name{font-size:12px;color:rgba(255,255,255,.9);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pl-sub{font-size:10.5px;color:rgba(255,255,255,.42);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -15449,6 +15454,7 @@ function coverProxySrc(url, cacheBust) {
 function coverUrlWithSize(url, size) {
   if (!url || isInlineCoverSrc(url) || !/^https?:\/\//i.test(url)) return url || '';
   if (!size) return url;
+  if (!/music\.126\.net|music\.163\.com/i.test(url)) return url;
   var param = 'param=' + size + 'y' + size;
   if (/[?&]param=\d+y\d+/i.test(url)) return url.replace(/([?&])param=\d+y\d+/i, '$1' + param);
   return url + (url.indexOf('?') >= 0 ? '&' : '?') + param;
@@ -15511,6 +15517,16 @@ function playlistProviderId(provider, id) {
   if (provider === 'qishui-import') return id.indexOf('qishui:') === 0 ? id : ('qishui:' + id);
   return id.indexOf('netease:') === 0 ? id.slice(8) : id;
 }
+function playlistBareProviderId(provider, id) {
+  provider = playlistProviderKey(provider);
+  id = String(id || '').trim();
+  if (provider === 'qq') return id.replace(/^qq:/, '');
+  if (provider === 'kuwo') return id.replace(/^kuwo:/, '');
+  if (provider === 'apple-music-import') return id.replace(/^apple:/, '');
+  if (provider === 'qishui-import') return id.replace(/^qishui:/, '');
+  if (provider === 'netease') return id.replace(/^netease:/, '');
+  return id;
+}
 function normalizePlaylistRecord(pl, fallbackProvider) {
   pl = pl || {};
   var provider = playlistProviderKey(pl.provider || pl.source || fallbackProvider || 'netease');
@@ -15561,6 +15577,48 @@ function rememberImportedSharedPlaylist(pl) {
   saveImportedSharedPlaylists();
   return pl;
 }
+function removeImportedSharedPlaylist(provider, id) {
+  provider = playlistProviderKey(provider);
+  id = String(id || '').trim();
+  var before = (importedSharedPlaylists || []).length;
+  importedSharedPlaylists = (importedSharedPlaylists || []).filter(function(item){
+    return !(playlistProviderKey(item.provider) === provider && String(item.id || '') === id);
+  });
+  if (importedSharedPlaylists.length === before) return false;
+  saveImportedSharedPlaylists();
+  userPlaylists = mergePlaylistRecords(importedSharedPlaylists.concat(userPlaylists.filter(function(item){
+    return !(playlistProviderKey(item.provider) === provider && String(item.id || '') === id && item.imported);
+  })));
+  homeDiscoverState.playlists = mergePlaylistRecords(importedSharedPlaylists.concat((homeDiscoverState.playlists || []).filter(function(item){
+    return !(playlistProviderKey(item.provider) === provider && String(item.id || '') === id && item.imported);
+  })));
+  var key = playlistPanelKey(provider, id);
+  if (playlistPanelDetailState.key === key) {
+    playlistPanelDetailState.key = '';
+    playlistPanelDetailState.tracks = [];
+    playlistPanelDetailState.playlist = null;
+    playlistPanelDetailState.loading = false;
+  }
+  renderUserPlaylistsList({ animate: isPlaylistPanelVisibleForRender(), reset: true });
+  if (emptyHomeActive) renderHomeDiscover();
+  safeShelfRebuild('delete-imported-playlist', true);
+  return true;
+}
+function mergePlaylistRecordInto(target, source) {
+  var old = Object.assign({}, target || {});
+  Object.assign(target, source, {
+    imported: old.imported || source.imported,
+    importedAt: Math.max(Number(old.importedAt || 0) || 0, Number(source.importedAt || 0) || 0),
+    subscribed: old.subscribed || source.subscribed
+  });
+  if (!source.cover && old.cover) target.cover = old.cover;
+  if (!source.importUrl && old.importUrl) target.importUrl = old.importUrl;
+  if (!source.creator && old.creator) target.creator = old.creator;
+  if (!source.trackCount && old.trackCount) target.trackCount = old.trackCount;
+  if (!source.loadedCount && old.loadedCount) target.loadedCount = old.loadedCount;
+  if (!source.partialReason && old.partialReason) target.partialReason = old.partialReason;
+  return target;
+}
 function mergePlaylistRecords(items) {
   var out = [];
   var seen = {};
@@ -15569,11 +15627,7 @@ function mergePlaylistRecords(items) {
     if (!pl.id || !pl.name) return;
     var key = playlistProviderKey(pl.provider) + ':' + String(pl.id || '');
     if (seen[key]) {
-      Object.assign(seen[key], pl, {
-        imported: seen[key].imported || pl.imported,
-        importedAt: Math.max(Number(seen[key].importedAt || 0) || 0, Number(pl.importedAt || 0) || 0),
-        subscribed: seen[key].subscribed || pl.subscribed
-      });
+      mergePlaylistRecordInto(seen[key], pl);
       return;
     }
     seen[key] = pl;
@@ -15607,12 +15661,12 @@ async function loadConnectorPlaylistData(provider, id, opts) {
     return connectorRequest('kuwo.sharedPlaylist', { id: id.replace(/^kuwo:/, ''), text: id, url: id }, opts.timeoutMs || 18000);
   }
   if (provider === 'apple-music-import') {
-    if (!connectorSupportsExternalPlaylistImport()) throw new Error('Need Mineradio Connector 0.5.12 or newer for Apple Music playlists');
-    return connectorRequest('appleMusic.sharedPlaylist', { id: id, text: opts.text || opts.url || id, url: /^https?:\/\//i.test(opts.url || '') ? opts.url : '' }, opts.timeoutMs || 22000);
+    if (!connectorSupportsExternalPlaylistImport()) throw new Error('Need Mineradio Connector 0.5.13 or newer for Apple Music playlists');
+    return connectorRequest('appleMusic.sharedPlaylist', { id: playlistBareProviderId(provider, id), text: opts.text || opts.url || id, url: /^https?:\/\//i.test(opts.url || '') ? opts.url : '' }, opts.timeoutMs || 22000);
   }
   if (provider === 'qishui-import') {
-    if (!connectorSupportsExternalPlaylistImport()) throw new Error('Need Mineradio Connector 0.5.12 or newer for Qishui playlists');
-    return connectorRequest('qishui.sharedPlaylist', { id: id, text: opts.text || opts.url || id, url: /^https?:\/\//i.test(opts.url || '') ? opts.url : '' }, opts.timeoutMs || 22000);
+    if (!connectorSupportsExternalPlaylistImport()) throw new Error('Need Mineradio Connector 0.5.13 or newer for Qishui playlists');
+    return connectorRequest('qishui.sharedPlaylist', { id: playlistBareProviderId(provider, id), text: opts.text || opts.url || id, url: /^https?:\/\//i.test(opts.url || '') ? opts.url : '' }, opts.timeoutMs || 22000);
   }
   return connectorRequest('netease.playlistTracks', { id: id.replace(/^netease:/, '') }, opts.timeoutMs || 14000);
 }
@@ -15639,6 +15693,8 @@ function resolvePlaylistRequest(id, provider) {
 }
 function playlistConnectorTimeoutMs(provider) {
   provider = playlistProviderKey(provider);
+  if (provider === 'qq') return 36000;
+  if (provider === 'apple-music-import' || provider === 'qishui-import') return 22000;
   return (provider === 'kugou' || provider === 'kuwo') ? 18000 : 16000;
 }
 function cssImageUrl(url) {
@@ -17581,6 +17637,9 @@ function heartIconSvg() {
 function playlistPlusIconSvg() {
   return '<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h10"/><path d="M4 11h10"/><path d="M4 16h7"/><path d="M18 14v6"/><path d="M15 17h6"/></svg>';
 }
+function trashIconSvg() {
+  return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M6.5 7l1 14h9l1-14"/><path d="M9 7V4h6v3"/></svg>';
+}
 function artistCollectTrayIconSvg() {
   return '<svg fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v9"/><path d="M7.5 9.5h9"/><path d="M4.5 12.5v6h15v-6"/></svg>';
 }
@@ -18089,7 +18148,7 @@ function connectorSupportsKuwoPlaylists() {
   return connectorState.available && versionAtLeast(connectorState.version, '0.5.7');
 }
 function connectorSupportsExternalPlaylistImport() {
-  return connectorState.available && versionAtLeast(connectorState.version, '0.5.12');
+  return connectorState.available && versionAtLeast(connectorState.version, '0.5.13');
 }
 function connectorSupportsSharedPlaylistImport() {
   return connectorState.available && versionAtLeast(connectorState.version, '0.5.0');
@@ -18993,7 +19052,7 @@ async function importSharedPlaylist(q, opts) {
     return true;
   }
   if ((share.provider === 'apple-music-import' || share.provider === 'qishui-import') && !connectorSupportsExternalPlaylistImport()) {
-    showSourceFallbackNotice('Need Mineradio Connector 0.5.12', 'Apple Music / Qishui playlist import needs the updated browser connector.');
+    showSourceFallbackNotice('Need Mineradio Connector 0.5.13', 'Apple Music / Qishui playlist import needs the updated browser connector.');
     return true;
   }
   var requestSeq = ++searchRequestSeq;
@@ -21316,7 +21375,7 @@ async function refreshUserPlaylists(force) {
     ]);
     var neteaseLists = (result[0].playlists || []).map(function(pl){ pl.provider = 'netease'; pl.source = 'netease'; return pl; });
     qqPlaylists = (result[2].playlists || []).map(function(pl){ pl.provider = 'qq'; pl.source = 'qq'; return pl; });
-    userPlaylists = neteaseLists.concat(qqPlaylists);
+    userPlaylists = mergePlaylistRecords(importedSharedPlaylists.concat(neteaseLists, qqPlaylists));
     myPodcastCollections = result[1].collections || [];
     var animatePanel = isPlaylistPanelVisibleForRender();
     renderUserPlaylistsList({ animate: animatePanel, reset: true });
@@ -21514,10 +21573,11 @@ function renderUserPlaylistsList(opts) {
     var imgTag = thumb ? '<img src="' + thumb + '" alt="" loading="lazy" decoding="async" onerror="this.style.opacity=0.2">' : '<div style="width:44px;height:44px;border-radius:8px;background:rgba(255,255,255,.06);flex-shrink:0"></div>';
     var key = playlistPanelKey(provider, pl.id);
     var expanded = playlistPanelDetailState.key === key ? ' expanded' : '';
+    var deleteBtn = pl.imported ? '<button type="button" class="pl-delete-btn" data-pl-delete="1" title="\u5220\u9664\u672c\u5730\u5bfc\u5165\u8bb0\u5f55" aria-label="\u5220\u9664\u672c\u5730\u5bfc\u5165\u8bb0\u5f55">' + trashIconSvg() + '</button>' : '';
     var countText = pl.partial ? ((pl.loadedCount || 0) + '/' + (pl.trackCount || 0) + ' 首 · 部分导入') : (pl.trackCount + ' 首');
     return '<div class="pl-card' + expanded + '" data-playlist-provider="' + provider + '" data-playlist-id="' + escHtml(String(pl.id || '')) + '" data-playlist-title="' + escHtml(pl.name || '') + '">' +
       imgTag +
-      '<div style="flex:1;min-width:0"><div class="pl-name">' + escHtml(pl.name) + '<span class="tag-source ' + provider + '" style="margin-left:6px;vertical-align:1px">' + providerLabel + '</span></div><div class="pl-sub">' + escHtml(countText + ' · ' + (pl.creator || '')) + '</div></div>' +
+      '<div class="pl-card-main"><div class="pl-name">' + escHtml(pl.name) + '<span class="tag-source ' + provider + '" style="margin-left:6px;vertical-align:1px">' + providerLabel + '</span></div><div class="pl-sub">' + escHtml(countText + ' · ' + (pl.creator || '')) + '</div></div>' + deleteBtn +
     '</div>' + playlistPanelDetailHtml(pl, provider);
   }
   var groups = [
@@ -21598,6 +21658,19 @@ document.getElementById('pl-list').addEventListener('click', function(e){
     e.preventDefault();
     e.stopPropagation();
     playPlaylistPanelDetail();
+    return;
+  }
+  var deletePlaylist = e.target && e.target.closest ? e.target.closest('[data-pl-delete]') : null;
+  if (deletePlaylist) {
+    e.preventDefault();
+    e.stopPropagation();
+    var deleteCard = deletePlaylist.closest('.pl-card');
+    var deleteProvider = deleteCard && deleteCard.getAttribute('data-playlist-provider') || 'netease';
+    var deleteId = deleteCard && deleteCard.getAttribute('data-playlist-id') || '';
+    var deleteTitle = deleteCard && deleteCard.getAttribute('data-playlist-title') || '';
+    if (deleteId && window.confirm('删除本地导入歌单记录「' + (deleteTitle || deleteId) + '」？不会删除平台账号里的歌单。')) {
+      if (removeImportedSharedPlaylist(deleteProvider, deleteId)) showToast('已删除本地导入歌单');
+    }
     return;
   }
   var artist = e.target && e.target.closest ? e.target.closest('[data-pl-detail-artist]') : null;
