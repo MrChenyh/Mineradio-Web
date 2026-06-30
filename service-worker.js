@@ -436,6 +436,7 @@ function sanitizeCookieObject(obj, fieldPattern) {
 }
 
 async function fetchTextWithTimeout(url, init, timeoutMs) {
+  if (!/^https?:\/\//i.test(String(url || ''))) throw new Error('Unsupported fetch URL: ' + String(url || '').slice(0, 40));
   const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
   const timer = controller ? setTimeout(() => controller.abort(), timeoutMs || 8000) : null;
   try {
@@ -2228,9 +2229,10 @@ function parseApplePlaylistId(value) {
 }
 
 function applePlaylistUrlFromInput(input, playlistId) {
+  const id = playlistId || parseApplePlaylistId(input);
+  if (id && /^apple:/i.test(String(input || ''))) return APPLE_MUSIC_ORIGIN + '/cn/playlist/' + encodeURIComponent(id);
   const directUrl = firstHttpUrlFromValues([input]);
   if (directUrl) return directUrl;
-  const id = playlistId || parseApplePlaylistId(input);
   return id ? (APPLE_MUSIC_ORIGIN + '/cn/playlist/' + encodeURIComponent(id)) : '';
 }
 
