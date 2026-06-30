@@ -5,10 +5,14 @@ const KUGOU_ORIGIN = 'https://www.kugou.com';
 const KUGOU_VIP_ORIGIN = 'https://vip.kugou.com';
 const KUGOU_MOBILE_ORIGIN = 'https://m.kugou.com';
 const KUGOU_MOBILE_ALT_ORIGIN = 'https://m3ws.kugou.com';
+const KUWO_ORIGIN = 'https://www.kuwo.cn';
+const KUWO_BD_ORIGIN = 'https://bd.kuwo.cn';
 const QQ_ORIGIN = 'https://y.qq.com';
 const QQ_MUSICU_URL = 'https://u.y.qq.com/cgi-bin/musicu.fcg';
 const QQ_SMARTBOX_URL = 'https://c.y.qq.com/splcloud/fcgi-bin/smartbox_new.fcg';
 const KUGOU_SIGN_SECRET = 'NVPh5oo715z5DIWAeQlhMDsWXXQV4hwt';
+const KUWO_SECRET_COOKIE_NAME = 'Hm_Iuvt_cdb524f42f23cer9b268564v7y735ewrq2324';
+const KUWO_SECRET_COOKIE_VALUE = 'JXbannkz4r3pXFRW8YNjxzxmSkdxSPRX';
 const NETEASE_DEFAULT_LEVEL = 'standard';
 const NETEASE_AUDIO_RULE_ID = 163001;
 const QQ_AUDIO_RULE_IDS = [163002, 163003];
@@ -23,6 +27,7 @@ const NETEASE_HOME_PLAYLIST_RENDER_LIMIT = 48;
 const NETEASE_PLAYLIST_TRACK_LIMIT = 240;
 const QQ_PLAYLIST_TRACK_LIMIT = 240;
 const KUGOU_SHARED_PLAYLIST_TRACK_LIMIT = 500;
+const KUWO_PLAYLIST_TRACK_LIMIT = 300;
 const KUGOU_PROBE_QUERIES = ['\u5468\u6770\u4f26 \u6674\u5929', '\u9648\u5955\u8fc5 \u5341\u5e74', 'Taylor Swift Love Story'];
 const NETEASE_AUTH_STORE_KEY = 'mineradio.neteaseAuth.v1';
 const QQ_AUTH_STORE_KEY = 'mineradio.qqAuth.v1';
@@ -146,10 +151,20 @@ function neteaseHeaders(extra) {
   }, extra || {});
 }
 
+function kuwoHeaders(extra) {
+  return Object.assign({
+    Referer: KUWO_BD_ORIGIN + '/',
+    Origin: KUWO_BD_ORIGIN,
+    Cookie: KUWO_SECRET_COOKIE_NAME + '=' + KUWO_SECRET_COOKIE_VALUE,
+    Secret: kuwoSecret(KUWO_SECRET_COOKIE_VALUE, KUWO_SECRET_COOKIE_NAME)
+  }, extra || {});
+}
+
 function headersForUrl(url, extra) {
   let host = '';
   try { host = new URL(url).hostname.toLowerCase(); } catch (err) {}
   if (host.includes('kugou.com')) return kugouHeaders(extra);
+  if (host.includes('kuwo.cn')) return kuwoHeaders(extra);
   if (host.includes('qq.com') || host.includes('qpic.cn') || host.includes('gtimg.cn') || host.includes('qlogo.cn')) return qqHeaders(extra);
   return neteaseHeaders(extra);
 }
@@ -644,6 +659,63 @@ function kugouHeaders(extra) {
     Referer: KUGOU_ORIGIN + '/',
     Origin: KUGOU_ORIGIN
   }, extra || {});
+}
+
+function kuwoSecret(seed, key) {
+  seed = String(seed || '');
+  key = String(key || '');
+  if (!seed || !key) return '';
+  let digits = '';
+  for (let i = 0; i < key.length; i++) digits += key.charCodeAt(i).toString();
+  const step = Math.floor(digits.length / 5);
+  const r = parseInt(digits.charAt(step) + digits.charAt(2 * step) + digits.charAt(3 * step) + digits.charAt(4 * step) + digits.charAt(5 * step), 10);
+  const c = Math.ceil(key.length / 2);
+  const mod = Math.pow(2, 31) - 1;
+  if (r < 2) return '';
+  let nonce = Math.round(1e9 * Math.random()) % 1e8;
+  digits += nonce;
+  while (digits.length > 10) {
+    digits = (parseInt(digits.substring(0, 10), 10) + parseInt(digits.substring(10), 10)).toString();
+  }
+  let n = (r * Number(digits) + c) % mod;
+  let out = '';
+  for (let i = 0; i < seed.length; i++) {
+    const code = parseInt(seed.charCodeAt(i) ^ Math.floor(n / mod * 255), 10);
+    out += code < 16 ? '0' + code.toString(16) : code.toString(16);
+    n = (r * n + c) % mod;
+  }
+  nonce = nonce.toString(16);
+  while (nonce.length < 8) nonce = '0' + nonce;
+  return out + nonce;
+}
+
+function kuwoReqId() {
+  if (crypto && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes).map(byte => byte.toString(16).padStart(2, '0')).join('');
+  return hex.slice(0, 8) + '-' + hex.slice(8, 12) + '-' + hex.slice(12, 16) + '-' + hex.slice(16, 20) + '-' + hex.slice(20);
+}
+
+async function ensureKuwoSeedCookie() {
+  if (!chrome.cookies || !chrome.cookies.set) return false;
+  return new Promise(resolve => {
+    try {
+      chrome.cookies.set({
+        url: KUWO_BD_ORIGIN + '/',
+        name: KUWO_SECRET_COOKIE_NAME,
+        value: KUWO_SECRET_COOKIE_VALUE,
+        domain: '.kuwo.cn',
+        path: '/',
+        secure: true,
+        sameSite: 'no_restriction'
+      }, cookie => resolve(!!cookie && !chrome.runtime.lastError));
+    } catch (err) {
+      resolve(false);
+    }
+  });
 }
 
 function kugouCookieUrl() {
@@ -1698,6 +1770,161 @@ async function kugouSharedPlaylist(payload) {
   const result = normalizeKugouSharedPlaylist(data, info);
   if (!result.tracks.length) throw new Error('Kugou shared playlist has no readable tracks');
   return result;
+}
+
+function parseKuwoPlaylistId(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  const prefixed = raw.match(/(?:^|[^a-z0-9])kuwo:(\d{5,})(?:\D|$)/i);
+  if (prefixed) return prefixed[1];
+  if (/^\d{5,}$/.test(raw)) return raw;
+  const direct = raw.match(/(?:pid|playlist|id)[:=\/\s]+(\d{5,})/i);
+  const urlMatch = raw.match(/https?:\/\/[^\s"'<>]+/i);
+  const target = urlMatch ? urlMatch[0].replace(/[閿涘被鈧倶鈧讲鈧壕鈧績鈧ǚ鈧瑱绱?\]]+$/g, '') : raw;
+  try {
+    const parsed = new URL(target);
+    const host = parsed.hostname.toLowerCase();
+    if (!/(^|\.)kuwo\.cn$/.test(host)) return direct ? direct[1] : '';
+    const queryId = parsed.searchParams.get('pid') || parsed.searchParams.get('id') || '';
+    if (/^\d{5,}$/.test(queryId)) return queryId;
+    const pathHit = parsed.pathname.match(/(?:playlist_detail|playlist|songlist)\/(\d{5,})/i) || parsed.pathname.match(/\/(\d{5,})(?:\.html)?$/i);
+    if (pathHit) return pathHit[1];
+  } catch (err) {}
+  return direct ? direct[1] : '';
+}
+
+function kuwoPlaylistApiUrl(id, page, pageSize) {
+  const params = new URLSearchParams({
+    pid: String(id),
+    pn: String(page || 1),
+    rn: String(pageSize || 20),
+    httpsStatus: '1',
+    reqId: kuwoReqId(),
+    plat: 'web_www',
+    from: ''
+  });
+  return KUWO_BD_ORIGIN + '/api/www/playlist/playListInfo?' + params.toString();
+}
+
+function kuwoDurationSeconds(value) {
+  if (typeof value === 'number') return Math.round(value) || 0;
+  const text = String(value || '').trim();
+  if (!text) return 0;
+  if (/^\d+(?:\.\d+)?$/.test(text)) return Math.round(Number(text)) || 0;
+  const parts = text.split(':').map(part => Number(part) || 0);
+  if (parts.length === 2) return Math.round(parts[0] * 60 + parts[1]);
+  if (parts.length === 3) return Math.round(parts[0] * 3600 + parts[1] * 60 + parts[2]);
+  return 0;
+}
+
+function normalizeKuwoPlaylistTrack(raw) {
+  raw = raw || {};
+  const rid = String(raw.musicrid || raw.musicRid || raw.rid || raw.id || '').replace(/^MUSIC_/i, '');
+  return {
+    provider: 'kuwo-extension',
+    source: 'kuwo-extension',
+    type: 'kuwo-extension',
+    id: rid,
+    mid: rid,
+    name: stripHtml(raw.name || raw.songName || raw.title || ''),
+    artist: stripHtml(raw.artist || raw.artistName || raw.singer || ''),
+    album: stripHtml(raw.album || raw.albumName || ''),
+    cover: ensureHttpsAudioUrl(raw.pic || raw.albumPic || raw.albumpic || raw.img || ''),
+    duration: kuwoDurationSeconds(raw.duration || raw.songTimeMinutes || raw.songTime || 0),
+    playable: true,
+    playbackChecked: false,
+    playbackCode: 0,
+    playbackFallbackOnly: true,
+    raw: {
+      rid,
+      musicrid: raw.musicrid || raw.musicRid || '',
+      hasMv: !!raw.hasmv,
+      payInfo: raw.payInfo || raw.payinfo || null
+    }
+  };
+}
+
+function normalizeKuwoPlaylist(data, id, tracks) {
+  data = data || {};
+  tracks = tracks || [];
+  const total = Number(data.total || data.musicCount || data.songCount || tracks.length) || tracks.length;
+  return {
+    provider: 'kuwo-extension',
+    source: 'kuwo-extension',
+    type: 'playlist',
+    id: String(id || data.id || ''),
+    name: data.name || data.title || 'Kuwo Playlist',
+    cover: ensureHttpsAudioUrl(data.img700 || data.img500 || data.img300 || data.img || data.pic || ''),
+    trackCount: total,
+    loadedCount: tracks.length,
+    partial: total > tracks.length,
+    partialReason: total > tracks.length ? 'kuwo_connector_limit' : '',
+    playCount: Number(data.listencnt || data.playCount || data.playcnt || 0) || 0,
+    creator: data.userName || data.uname || data.nickname || '',
+    tag: data.tag || 'playlist'
+  };
+}
+
+async function kuwoFetchJson(url, playlistId, timeoutMs) {
+  await ensureKuwoSeedCookie();
+  return fetchJson(url, {
+    credentials: 'include',
+    referrer: KUWO_BD_ORIGIN + '/playlist_detail/' + playlistId,
+    timeoutMs: timeoutMs || 8500,
+    headers: kuwoHeaders({
+      Referer: KUWO_BD_ORIGIN + '/playlist_detail/' + playlistId,
+      Origin: KUWO_BD_ORIGIN
+    })
+  });
+}
+
+async function kuwoPlaylistTracks(payload) {
+  const id = parseKuwoPlaylistId(payload && (payload.id || payload.pid || payload.url || payload.text || payload.q || payload.input));
+  if (!id) throw new Error('Missing Kuwo playlist id');
+  const limit = Math.max(20, Math.min(KUWO_PLAYLIST_TRACK_LIMIT, Number(payload && payload.limit) || KUWO_PLAYLIST_TRACK_LIMIT));
+  const pageSize = 20;
+  const maxPages = Math.ceil(limit / pageSize);
+  let playlistData = null;
+  let trackCount = 0;
+  const tracks = [];
+  const seen = new Set();
+  for (let page = 1; page <= maxPages && tracks.length < limit; page++) {
+    const body = await kuwoFetchJson(kuwoPlaylistApiUrl(id, page, pageSize), id, 9000);
+    if (body && body.success === false) throw new Error(body.message || 'Kuwo playlist request rejected');
+    if (body && body.code && Number(body.code) !== 200) throw new Error(body.message || body.msg || 'Kuwo playlist request failed');
+    const data = body && body.data || {};
+    if (!playlistData) playlistData = data;
+    trackCount = Number(data.total || data.musicCount || trackCount) || trackCount;
+    const list = Array.isArray(data.musicList) ? data.musicList : [];
+    list.forEach(raw => {
+      if (tracks.length >= limit) return;
+      const song = normalizeKuwoPlaylistTrack(raw);
+      if (!song.id || !song.name || seen.has(song.id)) return;
+      seen.add(song.id);
+      tracks.push(song);
+    });
+    if (list.length < pageSize) break;
+  }
+  if (!tracks.length) throw new Error('Kuwo playlist has no readable tracks');
+  const playlist = normalizeKuwoPlaylist(playlistData, id, tracks);
+  trackCount = trackCount || playlist.trackCount || tracks.length;
+  playlist.trackCount = trackCount;
+  playlist.loadedCount = tracks.length;
+  playlist.partial = trackCount > tracks.length;
+  playlist.partialReason = playlist.partial ? 'kuwo_connector_limit' : '';
+  return {
+    provider: 'kuwo-extension',
+    playlist,
+    tracks,
+    trackCount,
+    loadedCount: tracks.length,
+    partial: playlist.partial,
+    partialReason: playlist.partialReason
+  };
+}
+
+async function kuwoSharedPlaylist(payload) {
+  return kuwoPlaylistTracks(payload);
 }
 
 
@@ -3175,6 +3402,8 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     if (action === 'kugou.sharedPlaylist') return jsonResponse(requestId, await kugouSharedPlaylist(payload));
     if (action === 'kugou.lyric') return jsonResponse(requestId, await kugouLyric(payload));
     if (action === 'kugou.songUrl') return jsonResponse(requestId, await kugouSongUrl(payload));
+    if (action === 'kuwo.playlistTracks') return jsonResponse(requestId, await kuwoPlaylistTracks(payload));
+    if (action === 'kuwo.sharedPlaylist') return jsonResponse(requestId, await kuwoSharedPlaylist(payload));
     if (action === 'qq.status') return jsonResponse(requestId, { status: await qqStatus() });
     if (action === 'qq.saveAuth') return jsonResponse(requestId, await qqSaveAuth(payload));
     if (action === 'qq.clearAuth') return jsonResponse(requestId, await qqClearAuth());

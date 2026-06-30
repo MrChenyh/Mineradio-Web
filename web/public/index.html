@@ -216,6 +216,7 @@ body.empty-home-active.diy-mode #search-area:not(.has-results) #search-mode-tabs
 .tag-source.itunes{color:#d8eeff;border-color:rgba(105,176,255,.32);background:rgba(105,176,255,.095)}
 .tag-source.audius{color:#ead9ff;border-color:rgba(172,132,255,.32);background:rgba(172,132,255,.095)}
 .tag-source.kugou-extension{color:#ffd9a8;border-color:rgba(255,166,82,.34);background:rgba(255,166,82,.10)}
+.tag-source.kuwo,.tag-source.kuwo-extension{color:#d8f7ff;border-color:rgba(87,204,224,.34);background:rgba(87,204,224,.10)}
 .tag-source.local{color:#d5f5ff;border-color:rgba(157,184,207,.32);background:rgba(157,184,207,.095)}
 #splash-connector,
 #user-btn,
@@ -237,6 +238,7 @@ body.empty-home-active.diy-mode #search-area:not(.has-results) #search-mode-tabs
 .search-result.itunes-source:hover{background:rgba(105,176,255,.05)}
 .search-result.audius-source:hover{background:rgba(172,132,255,.05)}
 .search-result.kugou-extension-source:hover{background:rgba(255,166,82,.052)}
+.search-result.kuwo-extension-source:hover{background:rgba(87,204,224,.052)}
 .podcast-result-head{display:flex;align-items:center;gap:10px;padding:11px 13px 9px;border-bottom:1px solid rgba(255,255,255,.04);background:rgba(255,255,255,.025)}
 .podcast-result-head img{width:40px;height:40px;border-radius:7px;object-fit:cover;background:rgba(255,255,255,.05);flex-shrink:0}
 .podcast-back-btn{width:28px;height:28px;border-radius:50%;border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.045);color:rgba(255,255,255,.66);cursor:pointer;font-family:inherit;font-size:18px;line-height:1;display:flex;align-items:center;justify-content:center;transition:all .2s}
@@ -2787,6 +2789,7 @@ var LRCLIB_SEARCH_API = 'https://lrclib.net/api/search';
 var KUGOU_SHARE_RE = /(?:https?:\/\/(?:t1|m|m3ws|www)\.kugou\.com\/[^\s"'<>]*?(?:gcid_[a-z0-9]+|src_cid=[a-z0-9]+)[^\s"'<>]*|gcid_[a-z0-9]+)/i;
 var NETEASE_PLAYLIST_SHARE_RE = /(?:https?:\/\/(?:music\.163\.com|y\.music\.163\.com)\/[^\s"'<>]*(?:playlist|id=\d{5,})[^\s"'<>]*|(?:^|[^a-z0-9])netease:\d{5,}(?:\D|$))/i;
 var QQ_PLAYLIST_SHARE_RE = /(?:https?:\/\/(?:y\.qq\.com|i\.y\.qq\.com|c\.y\.qq\.com)\/[^\s"'<>]*(?:playlist|playsquare|disstid=|tid=|id=\d{5,})[^\s"'<>]*|(?:^|[^a-z0-9])qq:\d{5,}(?:\D|$))/i;
+var KUWO_PLAYLIST_SHARE_RE = /(?:https?:\/\/(?:www|bd)\.kuwo\.cn\/[^\s"'<>]*(?:playlist_detail\/\d{5,}|pid=\d{5,}|id=\d{5,})[^\s"'<>]*|(?:^|[^a-z0-9])kuwo:\d{5,}(?:\D|$))/i;
 var ITUNES_HOME_PREVIEW_QUERIES = ['飞机场的10:30 陶喆', '似曾相识 陶喆', '千言万语 陶喆', '陶喆'];
 var homePreviewSongs = [];
 var homePreviewLoading = false;
@@ -14575,7 +14578,7 @@ function makeContentListManager() {
         r = podcastCollectionKey
           ? await apiJson('/api/podcast/my/items?key=' + encodeURIComponent(podcastCollectionKey) + '&limit=36')
           : (LOCAL_FIRST_MODE && connectorState.available
-            ? await loadConnectorPlaylistData(playlistReq.provider, playlistReq.id, { timeoutMs: playlistReq.provider === 'kugou' ? 18000 : 16000 })
+            ? await loadConnectorPlaylistData(playlistReq.provider, playlistReq.id, { timeoutMs: playlistConnectorTimeoutMs(playlistReq.provider) })
             : (playlistReq.provider === 'qq'
               ? await apiJson('/api/qq/playlist/tracks?id=' + encodeURIComponent(playlistReq.id))
               : await apiJson('/api/playlist/tracks?id=' + encodeURIComponent(playlistReq.id))));
@@ -15480,11 +15483,12 @@ function playlistProviderKey(provider) {
   provider = String(provider || '').toLowerCase();
   if (provider === 'qq' || provider === 'qq-extension') return 'qq';
   if (provider === 'kugou' || provider === 'kugou-extension') return 'kugou';
+  if (provider === 'kuwo' || provider === 'kuwo-extension') return 'kuwo';
   return 'netease';
 }
 function playlistProviderLabel(provider) {
   provider = playlistProviderKey(provider);
-  return provider === 'qq' ? 'QQ' : (provider === 'kugou' ? 'KG' : 'NE');
+  return provider === 'qq' ? 'QQ' : (provider === 'kugou' ? 'KG' : (provider === 'kuwo' ? 'KW' : 'NE'));
 }
 function playlistProviderName(provider) {
   provider = playlistProviderKey(provider);
@@ -15496,6 +15500,7 @@ function playlistProviderId(provider, id) {
   if (!id) return '';
   if (provider === 'qq') return id.indexOf('qq:') === 0 ? id : ('qq:' + id);
   if (provider === 'kugou') return id.indexOf('kugou:') === 0 ? id : ('kugou:' + id.replace(/^gcid_/i, 'gcid_'));
+  if (provider === 'kuwo') return id.indexOf('kuwo:') === 0 ? id : ('kuwo:' + id);
   return id.indexOf('netease:') === 0 ? id.slice(8) : id;
 }
 function normalizePlaylistRecord(pl, fallbackProvider) {
@@ -15504,6 +15509,7 @@ function normalizePlaylistRecord(pl, fallbackProvider) {
   var id = String(pl.id || pl.playlistId || '').trim();
   if (provider === 'qq') id = id.replace(/^qq:/, '');
   if (provider === 'kugou' && id && id.indexOf('kugou:') !== 0) id = playlistProviderId('kugou', id);
+  if (provider === 'kuwo') id = id.replace(/^kuwo:/, '');
   return Object.assign({}, pl, {
     provider: provider,
     source: pl.source || (provider + '-extension'),
@@ -15585,6 +15591,10 @@ async function loadConnectorPlaylistData(provider, id, opts) {
     if (!connectorSupportsKugouSharedPlaylist()) throw new Error('需要 Mineradio Connector 0.4.3 或更新版本读取酷狗分享歌单');
     return connectorRequest('kugou.sharedPlaylist', { text: id, url: id }, opts.timeoutMs || 18000);
   }
+  if (provider === 'kuwo') {
+    if (!connectorSupportsKuwoPlaylists()) throw new Error('Need Mineradio Connector 0.5.7 or newer for Kuwo playlists');
+    return connectorRequest('kuwo.sharedPlaylist', { id: id.replace(/^kuwo:/, ''), text: id, url: id }, opts.timeoutMs || 18000);
+  }
   return connectorRequest('netease.playlistTracks', { id: id.replace(/^netease:/, '') }, opts.timeoutMs || 14000);
 }
 function resolvePlaylistRequest(id, provider) {
@@ -15595,11 +15605,18 @@ function resolvePlaylistRequest(id, provider) {
     raw = raw.slice(3);
   } else if (raw.indexOf('kugou:') === 0) {
     provider = 'kugou';
+  } else if (raw.indexOf('kuwo:') === 0) {
+    provider = 'kuwo';
+    raw = raw.slice(5);
   } else if (raw.indexOf('netease:') === 0) {
     provider = 'netease';
     raw = raw.slice(8);
   }
   return { provider: provider, id: raw };
+}
+function playlistConnectorTimeoutMs(provider) {
+  provider = playlistProviderKey(provider);
+  return (provider === 'kugou' || provider === 'kuwo') ? 18000 : 16000;
 }
 function cssImageUrl(url) {
   return String(url || '').replace(/\\/g, '\\\\').replace(/"/g, '%22');
@@ -16900,6 +16917,7 @@ function songSourceLabel(song) {
   if (key === 'netease-extension') return '网易云扩展';
   if (key === 'qq-extension') return 'QQ 音乐扩展';
   if (key === 'kugou-extension') return '酷狗扩展';
+  if (key === 'kuwo-extension') return '酷我导入';
   if (song.provider === 'qq' || song.source === 'qq' || song.type === 'qq') return 'QQ 音乐';
   if (song.type === 'local') return '本地上传';
   if (song.type === 'podcast' || song.source === 'podcast') return '网易云播客';
@@ -18044,6 +18062,9 @@ function connectorSupportsKugouSharedPlaylist() {
 function connectorSupportsQQPlaylists() {
   return connectorState.available && versionAtLeast(connectorState.version, '0.5.0');
 }
+function connectorSupportsKuwoPlaylists() {
+  return connectorState.available && versionAtLeast(connectorState.version, '0.5.7');
+}
 function connectorSupportsSharedPlaylistImport() {
   return connectorState.available && versionAtLeast(connectorState.version, '0.5.0');
 }
@@ -18067,6 +18088,7 @@ function applyConnectorLoginStatuses() {
 function platformConnectorStatus(provider) {
   if (provider === 'qq') return connectorState.qqStatus || qqLoginStatus || {};
   if (provider === 'kugou') return connectorState.kugouStatus || {};
+  if (provider === 'kuwo') return {};
   return connectorState.status || loginStatus || {};
 }
 function connectorProviderReady(provider) {
@@ -18379,6 +18401,7 @@ function songProviderKey(song) {
   if (song && (song.provider === 'netease-extension' || song.source === 'netease-extension' || song.type === 'netease-extension')) return 'netease-extension';
   if (song && (song.provider === 'qq-extension' || song.source === 'qq-extension' || song.type === 'qq-extension')) return 'qq-extension';
   if (song && (song.provider === 'kugou-extension' || song.source === 'kugou-extension' || song.type === 'kugou-extension')) return 'kugou-extension';
+  if (song && (song.provider === 'kuwo-extension' || song.source === 'kuwo-extension' || song.type === 'kuwo-extension')) return 'kuwo-extension';
   if (song && (song.provider === 'gd-netease' || song.source === 'gd-netease' || song.publicProvider === 'gd-netease')) return 'gd-netease';
   if (song && (song.provider === 'gd-kuwo' || song.source === 'gd-kuwo' || song.publicProvider === 'gd-kuwo')) return 'gd-kuwo';
   if (song && (song.provider === 'itunes' || song.source === 'itunes' || song.publicProvider === 'itunes')) return 'itunes';
@@ -18392,7 +18415,7 @@ function isPublicSourceProviderKey(key) {
   return key === 'public' || key === 'gd-netease' || key === 'gd-kuwo' || key === 'itunes' || key === 'audius';
 }
 function isConnectorProviderKey(key) {
-  return key === 'netease-extension' || key === 'qq-extension' || key === 'kugou-extension';
+  return key === 'netease-extension' || key === 'qq-extension' || key === 'kugou-extension' || key === 'kuwo-extension';
 }
 function songSourceTagHtml(song) {
   var key = songProviderKey(song);
@@ -18400,12 +18423,13 @@ function songSourceTagHtml(song) {
     : (key === 'qq-extension' ? 'QQ-X'
     : (key === 'netease-extension' ? 'NE-X'
     : (key === 'kugou-extension' ? 'KG-X'
+    : (key === 'kuwo-extension' ? 'KW-X'
     : (key === 'gd-netease' ? 'GD'
     : (key === 'gd-kuwo' ? 'GD'
     : (key === 'itunes' ? '\u8bd5\u542c'
     : (key === 'audius' ? 'AUDIUS'
     : (key === 'public' ? 'WEB'
-    : (key === 'local' ? 'LOCAL' : 'NE')))))))));
+    : (key === 'local' ? 'LOCAL' : 'NE'))))))))));
   return '<span class="tag-source ' + key + '">' + label + '</span>';
 }
 function searchResultMetaText(song) {
@@ -18523,7 +18547,7 @@ function scoreSongSearchResult(song, q, sourceIndex) {
   if (album && nq && (album.indexOf(nq) >= 0 || nq.indexOf(album) >= 0)) score += 8;
   var providerKey = songProviderKey(song);
   if (providerKey === 'qq') score += searchIntentPrefersQQ(q) ? 48 : 4;
-  if (providerKey === 'qq-extension' || providerKey === 'kugou-extension' || providerKey === 'netease-extension') score += platformPreferenceScore(providerKey, song);
+  if (providerKey === 'qq-extension' || providerKey === 'kugou-extension' || providerKey === 'netease-extension' || providerKey === 'kuwo-extension') score += platformPreferenceScore(providerKey, song);
   if (providerKey === 'gd-netease' || providerKey === 'gd-kuwo') score += /[\u4e00-\u9fff]/.test(String(q || '')) ? 16 : 8;
   if (providerKey === 'itunes') score -= 36;
   if (providerKey === 'audius') score += /[\u4e00-\u9fff]/.test(String(q || '')) ? -8 : 8;
@@ -18545,13 +18569,16 @@ function songSimilarityKey(song) {
   return simpleSearchNorm(song.name || song.title || '') + '|' + (artists[0] || simpleSearchNorm(song.artist || ''));
 }
 function songHasKnownPlayableAudio(song) {
+  if (song && song.playbackFallbackOnly) return false;
   return !!(song && (song.publicAudioUrl || song.previewUrl || song.streamUrl || song.playbackProbeDeferred || (song.playbackChecked && song.playable !== false && !song.playbackProbeFailed)));
 }
 function platformPreferenceScore(providerKey, song) {
-  var provider = providerKey === 'qq-extension' || providerKey === 'qq' ? 'qq' : (providerKey === 'kugou-extension' ? 'kugou' : 'netease');
+  var provider = providerKey === 'qq-extension' || providerKey === 'qq' ? 'qq' : (providerKey === 'kugou-extension' ? 'kugou' : (providerKey === 'kuwo-extension' ? 'kuwo' : 'netease'));
   var status = platformConnectorStatus(provider);
   var score = 0;
-  if (provider === 'kugou') {
+  if (provider === 'kuwo') {
+    score -= 22;
+  } else if (provider === 'kugou') {
     if (status && status.playbackReady) score += 76;
     else score -= 95;
   } else if (status && status.loggedIn) {
@@ -18813,7 +18840,7 @@ async function fetchPublicSourceSearchResults(q) {
 function normalizeConnectorSong(song) {
   song = song || {};
   var provider = song.provider || song.source || song.type || 'netease-extension';
-  if (provider !== 'kugou-extension' && provider !== 'qq-extension') provider = 'netease-extension';
+  if (provider !== 'kugou-extension' && provider !== 'qq-extension' && provider !== 'kuwo-extension') provider = 'netease-extension';
   return Object.assign({}, song, {
     provider: provider,
     source: provider,
@@ -18834,6 +18861,7 @@ function normalizeConnectorSong(song) {
     playbackCode: Number(song.playbackCode || 0) || 0,
     playbackProbeFailed: !!song.playbackProbeFailed,
     playbackProbeDeferred: !!song.playbackProbeDeferred,
+    playbackFallbackOnly: !!song.playbackFallbackOnly || provider === 'kuwo-extension',
     playbackMessage: song.playbackMessage || '',
     publicAudioUrl: song.probedAudioUrl || song.publicAudioUrl || ''
   });
@@ -18881,13 +18909,14 @@ function detectPlaylistShareInput(q) {
   q = String(q || '').trim();
   if (!q) return null;
   if (looksLikeKugouShareInput(q)) return { provider: 'kugou', action: 'kugou.sharedPlaylist', text: q };
+  if (KUWO_PLAYLIST_SHARE_RE.test(q)) return { provider: 'kuwo', action: 'kuwo.sharedPlaylist', text: q };
   if (QQ_PLAYLIST_SHARE_RE.test(q)) return { provider: 'qq', action: 'qq.sharedPlaylist', text: q };
   if (NETEASE_PLAYLIST_SHARE_RE.test(q)) return { provider: 'netease', action: 'netease.sharedPlaylist', text: q };
   return null;
 }
 function sharedPlaylistImportTitle(provider) {
   provider = playlistProviderKey(provider);
-  return provider === 'qq' ? 'QQ 歌单' : (provider === 'kugou' ? '酷狗分享歌单' : '网易云歌单');
+  return provider === 'qq' ? 'QQ \u6b4c\u5355' : (provider === 'kugou' ? '\u9177\u72d7\u5206\u4eab\u6b4c\u5355' : (provider === 'kuwo' ? '\u9177\u6211\u6b4c\u5355' : '\u7f51\u6613\u4e91\u6b4c\u5355'));
 }
 function sharedPlaylistImportMessage(pl, tracks, res) {
   var loaded = Number((res && res.loadedCount) || (pl && pl.loadedCount) || (tracks && tracks.length) || 0) || 0;
@@ -18902,8 +18931,12 @@ async function importSharedPlaylist(q, opts) {
   var share = detectPlaylistShareInput(q);
   if (!share) return false;
   await ensureConnectorAvailable(1800);
-  if (share.provider !== 'kugou' && !connectorSupportsSharedPlaylistImport()) {
+  if (share.provider !== 'kugou' && share.provider !== 'kuwo' && !connectorSupportsSharedPlaylistImport()) {
     showSourceFallbackNotice('需要更新 Mineradio Connector', '网易云 / QQ 外链歌单导入需要 0.5.0 或更新版本的浏览器扩展。');
+    return true;
+  }
+  if (share.provider === 'kuwo' && !connectorSupportsKuwoPlaylists()) {
+    showSourceFallbackNotice('需要更新 Mineradio Connector', '酷我歌单导入需要 0.5.7 或更新版本的浏览器扩展。');
     return true;
   }
   if (share.provider === 'kugou' && !connectorSupportsKugouSharedPlaylist()) {
@@ -18916,7 +18949,7 @@ async function importSharedPlaylist(q, opts) {
   $results.innerHTML = '<div class="search-empty">正在读取' + escHtml(title) + '...</div>';
   $results.classList.add('show');
   try {
-    var res = await connectorRequest(share.action, { text: q, url: q }, share.provider === 'kugou' ? 18000 : 16000);
+    var res = await connectorRequest(share.action, { text: q, url: q }, (share.provider === 'kugou' || share.provider === 'kuwo') ? 18000 : 16000);
     if (requestSeq !== searchRequestSeq) return true;
     var tracks = (Array.isArray(res.tracks) ? res.tracks : []).map(normalizeConnectorSong).filter(function(song){ return song.id && song.name; });
     if (!tracks.length) {
@@ -18994,6 +19027,9 @@ async function fetchConnectorPlayback(song) {
   var provider = songProviderKey(song);
   if (!connectorState.available) {
     return { provider: provider || 'connector', url: '', playable: false, reason: 'connector_missing', message: '未检测到 Mineradio Connector 扩展' };
+  }
+  if (song && (song.playbackFallbackOnly || provider === 'kuwo-extension')) {
+    return { provider: provider, url: '', playable: false, reason: 'url_unavailable', message: 'Kuwo imported track needs source fallback' };
   }
   if (song && song.publicAudioUrl) {
     return {
@@ -19117,6 +19153,7 @@ async function fetchConnectorLyricText(song) {
   if (!connectorState.available || !song || !song.id) return '';
   try {
     var provider = songProviderKey(song);
+    if (provider === 'kuwo-extension') return '';
     var lyricAction = provider === 'qq-extension' ? 'qq.lyric' : (provider === 'kugou-extension' ? 'kugou.lyric' : 'netease.lyric');
     var res = await connectorRequest(lyricAction, {
       id: song.id,
@@ -19672,6 +19709,7 @@ function playbackProviderLabel(song) {
   if (key === 'local') return '本地文件';
   if (key === 'qq-extension') return 'QQ 音乐扩展';
   if (key === 'kugou-extension') return '酷狗扩展';
+  if (key === 'kuwo-extension') return '酷我导入';
   if (key === 'netease-extension') return '网易云扩展';
   return key === 'qq' ? 'QQ 音乐' : '网易云';
 }
@@ -19693,6 +19731,7 @@ function playbackRestrictionMessage(song, data) {
     else if (songProviderKey(song) === 'netease-extension') message = '网易云扩展没有拿到播放地址，当前账号可能无版权或会员权限';
     else if (songProviderKey(song) === 'qq-extension') message = 'QQ 音乐扩展没有拿到播放地址，当前账号可能无版权或会员权限';
     else if (songProviderKey(song) === 'kugou-extension') message = '酷狗扩展没有拿到播放地址，当前账号可能无版权或会员权限';
+    else if (songProviderKey(song) === 'kuwo-extension') message = '酷我导入歌曲需要自动换源播放';
     else message = provider + '没有返回可播放地址';
   }
   if (category === 'login_required' && !LOCAL_FIRST_MODE) return message + ' · 正在打开登录';
@@ -19833,6 +19872,7 @@ function fallbackSourceContextText(song) {
   if (from === 'netease-extension') return '当前为换源后的版本';
   if (from === 'qq-extension') return '当前为换源后的版本';
   if (from === 'kugou-extension') return '当前为换源后的版本';
+  if (from === 'kuwo-extension') return '当前为酷我导入后换源播放的版本';
   return '';
 }
 function playbackTrialBannerInfo(song, data) {
@@ -21239,7 +21279,7 @@ function playlistPanelDetailHtml(pl, provider) {
   if (playlistPanelDetailState.key !== key) return '';
   var tracks = playlistPanelDetailState.tracks || [];
   var loading = playlistPanelDetailState.loading;
-  var cover = pl && pl.cover ? (provider === 'qq' ? pl.cover : (pl.cover + '?param=96y96')) : '';
+  var cover = pl && pl.cover ? (provider === 'netease' ? (pl.cover + '?param=96y96') : pl.cover) : '';
   var img = cover ? '<img class="pl-detail-cover" src="' + escHtml(cover) + '" alt="" decoding="async" onerror="this.style.opacity=0.2">' : '<div class="pl-detail-cover"></div>';
   var renderLimit = loading ? 0 : Math.max(PLAYLIST_DETAIL_INITIAL_RENDER, playlistPanelDetailState.renderLimit || PLAYLIST_DETAIL_INITIAL_RENDER);
   renderLimit = Math.min(tracks.length, renderLimit);
@@ -21317,7 +21357,7 @@ async function openPlaylistPanelDetail(provider, pid, title) {
   scrollPlaylistPanelDetailIntoView(key);
   try {
     var r = LOCAL_FIRST_MODE && connectorState.available
-      ? await loadConnectorPlaylistData(provider, pid, { timeoutMs: provider === 'kugou' ? 18000 : 16000 })
+      ? await loadConnectorPlaylistData(provider, pid, { timeoutMs: playlistConnectorTimeoutMs(provider) })
       : (provider === 'qq'
         ? await apiJson('/api/qq/playlist/tracks?id=' + encodeURIComponent(pid))
         : await apiJson('/api/playlist/tracks?id=' + encodeURIComponent(pid)));
@@ -21425,7 +21465,8 @@ function renderUserPlaylistsList(opts) {
   var groups = [
     { key:'netease', label:'网易云歌单', items:userPlaylists.filter(function(pl){ return playlistProviderKey(pl.provider) === 'netease'; }) },
     { key:'qq', label:'QQ 音乐歌单', items:userPlaylists.filter(function(pl){ return playlistProviderKey(pl.provider) === 'qq'; }) },
-    { key:'kugou', label:'酷狗导入歌单', items:userPlaylists.filter(function(pl){ return playlistProviderKey(pl.provider) === 'kugou'; }) }
+    { key:'kugou', label:'酷狗导入歌单', items:userPlaylists.filter(function(pl){ return playlistProviderKey(pl.provider) === 'kugou'; }) },
+    { key:'kuwo', label:'酷我导入歌单', items:userPlaylists.filter(function(pl){ return playlistProviderKey(pl.provider) === 'kuwo'; }) }
   ];
   if (opts.reset) resetPlaylistPanelRenderLimit();
   playlistPanelRenderLimit = Math.max(PLAYLIST_PANEL_BATCH_SIZE, Math.min(userPlaylists.length, playlistPanelRenderLimit || PLAYLIST_PANEL_BATCH_SIZE));
@@ -21619,7 +21660,7 @@ async function loadPlaylistIntoQueueById(id, autoplay, title) {
   var r = null;
   try {
     r = LOCAL_FIRST_MODE && connectorState.available
-      ? await loadConnectorPlaylistData(playlistReq.provider, playlistReq.id, { timeoutMs: playlistReq.provider === 'kugou' ? 18000 : 16000 })
+      ? await loadConnectorPlaylistData(playlistReq.provider, playlistReq.id, { timeoutMs: playlistConnectorTimeoutMs(playlistReq.provider) })
       : (playlistReq.provider === 'qq'
         ? await apiJson('/api/qq/playlist/tracks?id=' + encodeURIComponent(playlistReq.id))
         : await apiJson('/api/playlist/tracks?id=' + encodeURIComponent(playlistReq.id)));

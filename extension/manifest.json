@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Mineradio Connector",
-  "version": "0.5.6",
+  "version": "0.5.7",
   "description": "Connects Mineradio Web to browser music sessions for local testing.",
   "permissions": [
     "cookies",
@@ -24,6 +24,9 @@
     "https://fxsong.kugou.com/*",
     "https://webfs.kugou.com/*",
     "https://*.kugou.com/*",
+    "https://bd.kuwo.cn/*",
+    "https://www.kuwo.cn/*",
+    "https://*.kuwo.cn/*",
     "https://mrchenyh.github.io/*",
     "http://127.0.0.1/*",
     "http://localhost/*",
