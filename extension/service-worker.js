@@ -291,6 +291,68 @@ function chromeExecuteScript(options) {
   });
 }
 
+function chromeTabsCreate(options) {
+  return new Promise(resolve => {
+    if (!chrome.tabs || !chrome.tabs.create) return resolve(null);
+    try {
+      chrome.tabs.create(options || {}, tab => {
+        if (chrome.runtime.lastError) return resolve(null);
+        resolve(tab || null);
+      });
+    } catch (err) {
+      resolve(null);
+    }
+  });
+}
+
+function chromeTabsRemove(tabId) {
+  return new Promise(resolve => {
+    if (!chrome.tabs || !chrome.tabs.remove || tabId == null) return resolve(false);
+    try {
+      chrome.tabs.remove(tabId, () => resolve(!chrome.runtime.lastError));
+    } catch (err) {
+      resolve(false);
+    }
+  });
+}
+
+function chromeTabsGet(tabId) {
+  return new Promise(resolve => {
+    if (!chrome.tabs || !chrome.tabs.get || tabId == null) return resolve(null);
+    try {
+      chrome.tabs.get(tabId, tab => {
+        if (chrome.runtime.lastError) return resolve(null);
+        resolve(tab || null);
+      });
+    } catch (err) {
+      resolve(null);
+    }
+  });
+}
+
+function waitForTabComplete(tabId, timeoutMs) {
+  return new Promise(resolve => {
+    if (!chrome.tabs || !chrome.tabs.onUpdated || tabId == null) return resolve(false);
+    let settled = false;
+    let timer = null;
+    const finish = value => {
+      if (settled) return;
+      settled = true;
+      if (timer) clearTimeout(timer);
+      try { chrome.tabs.onUpdated.removeListener(listener); } catch (err) {}
+      resolve(value);
+    };
+    const listener = (updatedTabId, changeInfo, tab) => {
+      if (updatedTabId === tabId && (changeInfo && changeInfo.status === 'complete' || tab && tab.status === 'complete')) finish(true);
+    };
+    try { chrome.tabs.onUpdated.addListener(listener); } catch (err) { return finish(false); }
+    timer = setTimeout(() => finish(false), timeoutMs || 8000);
+    chromeTabsGet(tabId).then(tab => {
+      if (tab && tab.status === 'complete') finish(true);
+    });
+  });
+}
+
 function timeoutResult(label, fallback) {
   return Object.assign({ error: label + '_timeout' }, fallback || {});
 }
@@ -2502,6 +2564,139 @@ async function qqFetchJsonInMusicTab(targetUrl, requestOptions) {
   return null;
 }
 
+async function qqSignedMusicRequestInTab(tabId, requests, timeoutMs) {
+  if (!tabId) return null;
+  try {
+    const results = await promiseWithTimeout(chromeExecuteScript({
+      target: { tabId },
+      world: 'MAIN',
+      func: async function (requestList) {
+        function delay(ms) {
+          return new Promise(resolve => setTimeout(resolve, ms));
+        }
+        async function attempt() {
+          return new Promise(resolve => {
+            const jsonp = window.webpackJsonp || window.webpackChunk;
+            if (!jsonp || typeof jsonp.push !== 'function') return resolve({ ok: false, error: 'qq_webpack_missing' });
+            const moduleId = 930000 + Math.floor(Math.random() * 100000);
+            const callbackName = '__mineradioQQSigned_' + moduleId + '_' + Date.now();
+            let done = false;
+            let timer = null;
+            const finish = value => {
+              if (done) return;
+              done = true;
+              if (timer) clearTimeout(timer);
+              try { delete window[callbackName]; } catch (err) { window[callbackName] = undefined; }
+              resolve(value || { ok: false, error: 'qq_signed_empty' });
+            };
+            window[callbackName] = finish;
+            timer = setTimeout(() => finish({ ok: false, error: 'qq_signed_timeout' }), 7000);
+            const modules = {};
+            modules[moduleId] = function (module, exports, require) {
+              try {
+                const common = require(8);
+                const getRequester = common && (common.j || common.default && common.default.j);
+                const requester = typeof getRequester === 'function' ? getRequester() : null;
+                if (!requester || typeof requester.request !== 'function') throw new Error('qq_requester_missing');
+                requester.request(Array.isArray(requestList) ? requestList : [requestList])
+                  .then(result => window[callbackName]({ ok: true, result }))
+                  .catch(err => window[callbackName]({ ok: false, error: err && err.message || String(err) }));
+              } catch (err) {
+                window[callbackName]({ ok: false, error: err && err.message || String(err) });
+              }
+            };
+            try {
+              jsonp.push([[moduleId], modules, [[moduleId]]]);
+            } catch (err) {
+              finish({ ok: false, error: err && err.message || String(err) });
+            }
+          });
+        }
+        for (let i = 0; i < 4; i += 1) {
+          const result = await attempt();
+          if (result && result.ok) return result;
+          await delay(600 + i * 500);
+        }
+        return { ok: false, error: 'qq_signed_request_unavailable' };
+      },
+      args: [Array.isArray(requests) ? requests : [requests]]
+    }), timeoutMs || 11000, []);
+    const result = results && results[0] && results[0].result;
+    if (result && result.ok) return result.result;
+    if (result && result.error) console.warn('[Mineradio Connector] y.qq.com signed tab request unavailable', result.error);
+  } catch (err) {
+    console.warn('[Mineradio Connector] y.qq.com signed tab request failed', err);
+  }
+  return null;
+}
+
+function qqOfficialPlaylistRequest(id, limit) {
+  const dissId = Number(id);
+  const songNum = Math.max(1, Math.min(limit || QQ_PLAYLIST_TRACK_LIMIT, QQ_PLAYLIST_TRACK_LIMIT));
+  return [
+    {
+      module: 'music.srfDissInfo.aiDissInfo',
+      method: 'uniform_get_Dissinfo',
+      param: {
+        disstid: dissId,
+        userinfo: 1,
+        tag: 1,
+        orderlist: 1,
+        song_begin: 0,
+        song_num: songNum,
+        onlysonglist: 0,
+        enc_host_uin: ''
+      }
+    },
+    {
+      module: 'music.srfDissInfo.PlExtServer',
+      method: 'getPlExtInfo',
+      param: { tid: dissId, need: [6] }
+    }
+  ];
+}
+
+function normalizeQQOfficialPlaylistResponse(response) {
+  const blocks = Array.isArray(response)
+    ? response
+    : [response && response.req_0, response && response.req_1, response && response.req_2, response].filter(Boolean);
+  const first = blocks.find(item => item && item.data && (Array.isArray(item.data.songlist) || item.data.dirinfo)) || blocks[0];
+  const ext = blocks.find(item => item && item.data && item.data.result);
+  const data = first && first.data || {};
+  const songlist = Array.isArray(data.songlist) ? data.songlist : [];
+  if (!first || Number(data.code || 0) !== 0 || !songlist.length) return null;
+  const detail = data.dirinfo || data.detail || {};
+  const hotness = ext && ext.data && ext.data.result && ext.data.result[0] && ext.data.result[0].ext && ext.data.result[0].ext.exposeNum || '';
+  return {
+    detail,
+    songlist,
+    total_song_num: Number(data.total_song_num || detail.songnum || songlist.length) || songlist.length,
+    accessed_plaza_cache: data.accessed_plaza_cache,
+    hotnessstr: hotness
+  };
+}
+
+async function qqOfficialPlaylistTracksFromTab(id) {
+  const request = qqOfficialPlaylistRequest(id, QQ_PLAYLIST_TRACK_LIMIT);
+  const tabs = await promiseWithTimeout(qqMusicTabs(), 1800, []);
+  const existingTab = qqBestMusicTab(tabs);
+  const tabUrl = QQ_ORIGIN + '/n/ryqq_v2/playlist/' + encodeURIComponent(id);
+  if (existingTab && existingTab.id) {
+    const existingResponse = await qqSignedMusicRequestInTab(existingTab.id, request, 4500);
+    const existing = normalizeQQOfficialPlaylistResponse(existingResponse);
+    if (existing) return existing;
+  }
+  const createdTab = await chromeTabsCreate({ url: tabUrl, active: false });
+  try {
+    if (!createdTab || !createdTab.id) return null;
+    await waitForTabComplete(createdTab.id, 10000);
+    const response = await qqSignedMusicRequestInTab(createdTab.id, request, 13000);
+    return normalizeQQOfficialPlaylistResponse(response);
+  } finally {
+    if (createdTab && createdTab.id) await chromeTabsRemove(createdTab.id);
+  }
+}
+
 async function qqMusicRequest(payload, opts) {
   opts = opts || {};
   const cookieObj = opts.cookieObj || await qqAuthObjectFromBrowser();
@@ -2992,8 +3187,19 @@ async function qqPlaylistTracks(payload) {
     platform: 'yqq.json',
     needNewCode: '0'
   }, { cookieObj, timeoutMs: 8500, headers: { Referer: 'https://y.qq.com/n/yqq/playlist' } });
-  const detail = result && result.cdlist && result.cdlist[0] || {};
-  const rawTracks = Array.isArray(detail.songlist) ? detail.songlist : [];
+  let detail = result && result.cdlist && result.cdlist[0] || {};
+  let rawTracks = Array.isArray(detail.songlist) ? detail.songlist : [];
+  let detailSource = 'legacy';
+  if (!rawTracks.length) {
+    const official = await promiseWithTimeout(qqOfficialPlaylistTracksFromTab(id), 26000, null);
+    if (official && Array.isArray(official.songlist) && official.songlist.length) {
+      detail = official.detail || {};
+      rawTracks = official.songlist;
+      detailSource = 'signed-tab';
+      detail.total_song_num = official.total_song_num || detail.songnum || rawTracks.length;
+      if (official.hotnessstr && !detail.visitnum) detail.visitnum = official.hotnessstr;
+    }
+  }
   const tracks = rawTracks.slice(0, QQ_PLAYLIST_TRACK_LIMIT).map(mapQQPlaylistTrack).filter(song => song.name && (song.mid || song.id)).map(song => Object.assign(song, {
     playable: true,
     playbackChecked: false,
@@ -3010,14 +3216,15 @@ async function qqPlaylistTracks(payload) {
       source: 'qq-extension',
       type: 'playlist',
       id,
-      name: detail.dissname || detail.diss_name || detail.name || 'QQ Music Playlist',
-      cover: detail.logo || detail.diss_cover || '',
+      name: detail.dissname || detail.diss_name || detail.name || detail.title || 'QQ Music Playlist',
+      cover: detail.logo || detail.diss_cover || detail.picurl || detail.picurl2 || '',
       trackCount,
       loadedCount,
       partial,
       partialReason: partial ? 'qq_connector_limit' : '',
-      playCount: Number(detail.visitnum || detail.listen_num || 0) || 0,
-      creator: detail.nickname || detail.nick || detail.hostname || 'QQ Music'
+      detailSource,
+      playCount: Number(detail.visitnum || detail.listen_num || detail.listennum || 0) || 0,
+      creator: detail.nickname || detail.nick || detail.hostname || detail.host_nick || 'QQ Music'
     },
     tracks,
     trackCount,

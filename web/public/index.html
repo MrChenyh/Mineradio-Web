@@ -15584,8 +15584,8 @@ async function loadConnectorPlaylistData(provider, id, opts) {
   id = String(id || '').trim();
   if (!id) throw new Error('Missing playlist id');
   if (provider === 'qq') {
-    if (!connectorSupportsQQPlaylists()) throw new Error('需要更新 Mineradio Connector 到 0.5.0 或更新版本');
-    return connectorRequest('qq.playlistTracks', { id: id.replace(/^qq:/, '') }, opts.timeoutMs || 16000);
+    if (!connectorSupportsQQPlaylists()) throw new Error('需要更新 Mineradio Connector 到 0.5.11 或更新版本');
+    return connectorRequest('qq.playlistTracks', { id: id.replace(/^qq:/, '') }, opts.timeoutMs || 36000);
   }
   if (provider === 'kugou') {
     if (!connectorSupportsKugouSharedPlaylist()) throw new Error('需要 Mineradio Connector 0.5.8 或更新版本读取完整酷狗分享歌单');
@@ -18060,7 +18060,7 @@ function connectorSupportsKugouSharedPlaylist() {
   return connectorState.available && versionAtLeast(connectorState.version, '0.5.8');
 }
 function connectorSupportsQQPlaylists() {
-  return connectorState.available && versionAtLeast(connectorState.version, '0.5.0');
+  return connectorState.available && versionAtLeast(connectorState.version, '0.5.11');
 }
 function connectorSupportsKuwoPlaylists() {
   return connectorState.available && versionAtLeast(connectorState.version, '0.5.7');
@@ -18931,7 +18931,11 @@ async function importSharedPlaylist(q, opts) {
   var share = detectPlaylistShareInput(q);
   if (!share) return false;
   await ensureConnectorAvailable(1800);
-  if (share.provider !== 'kugou' && share.provider !== 'kuwo' && !connectorSupportsSharedPlaylistImport()) {
+  if (share.provider === 'qq' && !connectorSupportsQQPlaylists()) {
+    showSourceFallbackNotice('需要更新 Mineradio Connector', 'QQ 外链歌单导入需要 0.5.11 或更新版本的浏览器扩展。');
+    return true;
+  }
+  if (share.provider !== 'qq' && share.provider !== 'kugou' && share.provider !== 'kuwo' && !connectorSupportsSharedPlaylistImport()) {
     showSourceFallbackNotice('需要更新 Mineradio Connector', '网易云 / QQ 外链歌单导入需要 0.5.0 或更新版本的浏览器扩展。');
     return true;
   }
@@ -18949,7 +18953,7 @@ async function importSharedPlaylist(q, opts) {
   $results.innerHTML = '<div class="search-empty">正在读取' + escHtml(title) + '...</div>';
   $results.classList.add('show');
   try {
-    var res = await connectorRequest(share.action, { text: q, url: q }, (share.provider === 'kugou' || share.provider === 'kuwo') ? 18000 : 16000);
+    var res = await connectorRequest(share.action, { text: q, url: q }, share.provider === 'qq' ? 36000 : ((share.provider === 'kugou' || share.provider === 'kuwo') ? 18000 : 16000));
     if (requestSeq !== searchRequestSeq) return true;
     var tracks = (Array.isArray(res.tracks) ? res.tracks : []).map(normalizeConnectorSong).filter(function(song){ return song.id && song.name; });
     if (!tracks.length) {

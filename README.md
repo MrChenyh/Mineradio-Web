@@ -42,7 +42,7 @@ Mineradio Web 是一个基于 [Mineradio](https://github.com/XxHuberrr/Mineradio
 6. 打开或刷新 Mineradio Web。
 7. 在浏览器中登录 `music.163.com`、`y.qq.com`、`www.kugou.com` 后，回到 Mineradio Web 使用。
 
-当前 Connector 版本：`0.5.10`。扩展更新后，需要在扩展管理页点击“重新加载”。
+当前 Connector 版本：`0.5.11`。扩展更新后，需要在扩展管理页点击“重新加载”。
 
 ## 功能状态
 
@@ -162,4 +162,3 @@ release/             本地打包产物目录
 本项目基于 Mineradio 的视觉与产品方向做 Web 化探索，保留原项目 GPL-3.0 授权与来源说明。原项目地址：
 
 [https://github.com/XxHuberrr/Mineradio](https://github.com/XxHuberrr/Mineradio)
-
